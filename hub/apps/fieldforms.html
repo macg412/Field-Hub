@@ -846,15 +846,11 @@ function loginOk(u){
 }
 
 async function tryAuto(){
-  const{data:{session}}=await SB.auth.getSession();
-  if(session?.user) await loadProfile(session.user);
+  loginOk({ id:'00000000-0000-0000-0000-000000000001', email:'user@field.app', name:'Field User', isAdmin:false, verified:true });
 }
 
 async function doLogout(){
   closeM('mum');
-  await SB.auth.signOut();
-  APP.user=null;
-  showSc('sa');
 }
 
 function showUM(){document.getElementById('umnm').textContent=APP.user.name;document.getElementById('umem').textContent=APP.user.email;openM('mum');}
@@ -1469,15 +1465,7 @@ function showToast(msg,cls=''){const t=document.getElementById('toast');t.textCo
   // Initialise client — supabase is already available globally
   SB = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // Handle email verification redirect: Supabase appends #access_token to URL
-  // onAuthStateChange fires with SIGNED_IN automatically when token is in URL
-  SB.auth.onAuthStateChange(async(event, session)=>{
-    if((event==='SIGNED_IN'||event==='TOKEN_REFRESHED') && session && !APP.user){
-      await loadProfile(session.user);
-    } else if(event==='SIGNED_OUT'){
-      APP.user=null; showSc('sa');
-    }
-  });
+  // Auth bypassed — app runs without login.
 
   // Check for existing session (returning user / page reload)
   await tryAuto();

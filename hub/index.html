@@ -304,8 +304,85 @@
     .field-row { grid-template-columns: 1fr; }
     .page-head h1 { font-size: 1.2rem; }
   }
+
+  /* ── TABLET (601–1024px) ── */
+  @media (min-width: 601px) and (max-width: 1024px) {
+    .doc-type-grid { grid-template-columns: repeat(2, 1fr); }
+    .dash-strip { grid-template-columns: repeat(2, 1fr); }
+    .screen { padding: 20px 16px 60px; }
+  }
+
+  /* ── MOBILE (≤600px) ── */
+  @media (max-width: 600px) {
+    .screen { padding: 14px 12px 80px; }
+
+    /* Header — tighter, hide tag line */
+    .header-inner { padding: 8px 12px; gap: 8px; flex-wrap: nowrap; }
+    .brand .logo { font-size: 1.1rem; letter-spacing: 1.5px; }
+    .brand .product { font-size: 0.85rem; }
+    .brand .tag { display: none; }
+    .brand .divider { height: 26px; }
+    .user-info .name { display: none; }
+    .user-pill { padding: 5px 8px 5px 5px; }
+
+    /* Page header stacks */
+    .page-head { flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
+    .page-head .sub { font-size: 0.78rem; }
+
+    /* Dash strip — horizontal scroll on tiny screens */
+    .dash-strip { grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+    .dash-tile { padding: 10px 12px; gap: 8px; }
+    .dash-tile .dash-icon { width: 32px; height: 32px; font-size: 1rem; }
+    .dash-tile .dash-num { font-size: 1.2rem; }
+
+    /* Toolbar */
+    .toolbar { padding: 10px 12px; }
+    .toolbar-row { flex-direction: column; gap: 8px; align-items: stretch; }
+    .search-box { min-width: unset; }
+    .filter-group { flex-wrap: wrap; }
+    .doc-filter-row { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; }
+    .doc-filter-chip { white-space: nowrap; flex-shrink: 0; }
+    #sortPicker { width: 100%; }
+
+    /* Job rows — stack meta below on very narrow */
+    .job-row { padding: 12px 14px 12px 18px; gap: 10px; }
+    .job-dates { min-width: 80px; }
+
+    /* Doc type grid — single column */
+    .doc-type-grid { grid-template-columns: 1fr; gap: 10px; }
+
+    /* Folder header */
+    .folder-header { padding: 14px 16px; }
+    .folder-header-top { flex-direction: column; gap: 10px; }
+    .folder-actions { width: 100%; justify-content: flex-end; }
+    .folder-title-block h2 { font-size: 1.2rem; }
+
+    /* Modal — full screen on mobile */
+    .modal-bg { padding: 0; align-items: flex-end; }
+    .modal {
+      max-width: 100% !important;
+      max-height: 92vh;
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    }
+
+    /* Iframe doc viewer — taller on mobile */
+    .doc-host iframe { height: calc(100vh - 180px); min-height: 420px; }
+
+    /* Activity items */
+    .activity-item { padding: 8px 10px; gap: 8px; }
+
+    /* Tabs — scrollable */
+    .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .tab { padding: 9px 14px; font-size: 0.8rem; }
+
+    /* Buttons — larger touch targets */
+    .btn { min-height: 42px; }
+    .btn-sm { min-height: 36px; padding: 7px 12px; }
+    .btn-lg { min-height: 46px; }
+  }
 </style>
 </head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <body>
 
 <!-- ════════════════════════════════════════════════════════════════════
@@ -349,7 +426,7 @@
 <section class="screen active" id="screenLibrary">
   <div class="proto-banner" id="protoBanner">
     <span>🛠️</span>
-    <div><strong>Field Hub prototype.</strong> Job folder data lives in your browser (IndexedDB). Opening any document launches the matching app (Scoping / Job Card / Stores / FieldForms) with the WO #, name and address pre-filled — your existing apps still own their drafts.</div>
+    <div><strong>Field Hub prototype.</strong> Job folder data is stored in Supabase — changes sync across all devices instantly. Opening any document launches the matching app (Scoping / Job Card / Stores / FieldForms) with the WO #, name and address pre-filled.</div>
     <button class="banner-close" onclick="dismissProtoBanner()" title="Dismiss">×</button>
   </div>
 
@@ -654,80 +731,18 @@ const DOC_TYPES = {
   asbuilt:  { label:'As-Built',    icon:'✅', desc:'FieldForms PDF as-built',      cls:'asbuilt',  app:'apps/fieldforms.html' }
 };
 
-/* ═══════════════ INDEXEDDB (same pattern as Job Card V1.6) ═══════════════ */
-const DB_NAME = 'DownerFieldHub', DB_VER = 1;
-let db = null;
-
-function openDB() {
-  return new Promise((res, rej) => {
-    const r = indexedDB.open(DB_NAME, DB_VER);
-    r.onupgradeneeded = e => {
-      const d = e.target.result;
-      if (!d.objectStoreNames.contains('jobs')) {
-        const j = d.createObjectStore('jobs', { keyPath:'id' });
-        j.createIndex('updated_at','updated_at');
-        j.createIndex('wo_number','wo_number');
-      }
-      if (!d.objectStoreNames.contains('documents')) {
-        const doc = d.createObjectStore('documents', { keyPath:'id' });
-        doc.createIndex('job_id','job_id');
-      }
-      if (!d.objectStoreNames.contains('activity')) {
-        const a = d.createObjectStore('activity', { keyPath:'id' });
-        a.createIndex('job_id','job_id');
-        a.createIndex('at','at');
-      }
-    };
-    r.onsuccess = e => { db = e.target.result; res(db); };
-    r.onerror   = e => rej(e.target.error);
-  });
-}
-function tx(store, mode='readonly') { return db.transaction(store, mode).objectStore(store); }
-function dbGetAll(store, indexName) {
-  return new Promise((res, rej) => {
-    const s = tx(store);
-    const r = indexName ? s.index(indexName).getAll() : s.getAll();
-    r.onsuccess = e => res(e.target.result || []);
-    r.onerror   = e => rej(e.target.error);
-  });
-}
-function dbGetByIndex(store, indexName, value) {
-  return new Promise((res, rej) => {
-    const r = tx(store).index(indexName).getAll(value);
-    r.onsuccess = e => res(e.target.result || []);
-    r.onerror   = e => rej(e.target.error);
-  });
-}
-function dbGet(store, id) {
-  return new Promise((res, rej) => {
-    const r = tx(store).get(id);
-    r.onsuccess = e => res(e.target.result);
-    r.onerror   = e => rej(e.target.error);
-  });
-}
-function dbPut(store, obj) {
-  return new Promise((res, rej) => {
-    const r = tx(store, 'readwrite').put(obj);
-    r.onsuccess = () => res();
-    r.onerror   = e => rej(e.target.error);
-  });
-}
-function dbDelete(store, id) {
-  return new Promise((res, rej) => {
-    const r = tx(store, 'readwrite').delete(id);
-    r.onsuccess = () => res();
-    r.onerror   = e => rej(e.target.error);
-  });
-}
+/* ═══════════════ SUPABASE CLIENT ═══════════════ */
+const SUPABASE_URL  = 'https://rgcmisfwrflshggcwjie.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJnY21pc2Z3cmZsc2hnZ2N3amllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NzU2ODcsImV4cCI6MjA4OTM1MTY4N30.q2Et2UUoYYK2UXeBiKFfVbfYBVfIDOya0E-LL81cZCc';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 /* ═══════════════ HELPERS ═══════════════ */
-const uid = (p='id') => `${p}_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
 const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const fmtDate = ts => ts ? new Date(ts).toLocaleDateString('en-NZ', { day:'2-digit', month:'short', year:'numeric' }) : '—';
 const fmtDateTime = ts => ts ? new Date(ts).toLocaleString('en-NZ', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
 const relTime = ts => {
   if (!ts) return '—';
-  const diff = Date.now() - ts;
+  const diff = Date.now() - new Date(ts).getTime();
   const m = Math.floor(diff/60000), h = Math.floor(m/60), d = Math.floor(h/24);
   if (m < 1) return 'just now';
   if (m < 60) return `${m}m ago`;
@@ -738,13 +753,7 @@ const relTime = ts => {
 
 /* ═══════════════ ACTIVITY LOG ═══════════════ */
 async function logActivity(job_id, action, summary, doc_id=null) {
-  // ★ SUPABASE: replace with supabase.from('activity_log').insert({...})
-  const entry = {
-    id: uid('act'), job_id, doc_id, action, summary,
-    actor_id: currentUser.id, actor_name: currentUser.name,
-    at: Date.now()
-  };
-  await dbPut('activity', entry);
+  await sb.from('activity_log').insert({ job_id, doc_id, action, summary, actor_name: currentUser.name });
 }
 
 /* ═══════════════ STATE ═══════════════ */
@@ -757,11 +766,11 @@ let editingJobId = null; // null = creating; otherwise editing
 
 /* ═══════════════ JOB LIBRARY ═══════════════ */
 async function renderJobLibrary() {
-  // ★ SUPABASE: const { data: jobs } = await supabase.from('jobs').select('*, documents(count)').order('updated_at', { ascending: false })
-  const jobs = await dbGetAll('jobs');
-  const allDocs = await dbGetAll('documents');
+  const { data: jobs = [], error } = await sb.from('jobs').select('*, documents(*)');
+  if (error) console.error('renderJobLibrary:', error);
+  const allDocs = jobs.flatMap(j => j.documents || []);
   const docsByJob = {};
-  allDocs.forEach(d => { (docsByJob[d.job_id] = docsByJob[d.job_id] || []).push(d); });
+  jobs.forEach(j => { docsByJob[j.id] = j.documents || []; });
 
   // Render dashboard tiles every time (cheap; reflects new data immediately).
   renderDashStrip(jobs, allDocs);
@@ -788,10 +797,10 @@ async function renderJobLibrary() {
   });
 
   filtered.sort((a, b) => {
-    if (sort === 'created') return b.created_at - a.created_at;
+    if (sort === 'created') return new Date(b.created_at) - new Date(a.created_at);
     if (sort === 'wo')      return (a.wo_number || '').localeCompare(b.wo_number || '');
     if (sort === 'name')    return (a.job_name  || '').localeCompare(b.job_name  || '');
-    return b.updated_at - a.updated_at; // default: updated
+    return new Date(b.updated_at) - new Date(a.updated_at);
   });
 
   const list = document.getElementById('jobList');
@@ -845,7 +854,7 @@ function renderDashStrip(jobs, allDocs) {
     active:    jobs.filter(j => j.status === 'active').length,
     completed: jobs.filter(j => j.status === 'completed').length,
     archived:  jobs.filter(j => j.status === 'archived').length,
-    thisWeek:  jobs.filter(j => j.updated_at >= weekAgo).length
+    thisWeek:  jobs.filter(j => new Date(j.updated_at).getTime() >= weekAgo).length
   };
   dash.innerHTML = `
     <div class="dash-tile active">
@@ -943,77 +952,64 @@ function openCreateJob() {
   setTimeout(() => document.getElementById('jWO').focus(), 50);
 }
 async function editJob() {
-  const job = await dbGet('jobs', activeJobId);
+  const { data: job } = await sb.from('jobs').select('*').eq('id', activeJobId).single();
   if (!job) return;
   editingJobId = job.id;
   document.getElementById('jobModalTitle').textContent = 'Edit Job';
-  document.getElementById('jWO').value     = job.wo_number   || '';
-  document.getElementById('jName').value   = job.job_name    || '';
-  document.getElementById('jAddr').value   = job.address     || '';
-  document.getElementById('jType').value   = job.job_type    || 'Project';
-  document.getElementById('jStatus').value = job.status      || 'active';
+  document.getElementById('jWO').value     = job.wo_number      || '';
+  document.getElementById('jName').value   = job.job_name       || '';
+  document.getElementById('jAddr').value   = job.address        || '';
+  document.getElementById('jType').value   = job.job_type       || 'Project';
+  document.getElementById('jStatus').value = job.status         || 'active';
   document.getElementById('jDate').value   = job.scheduled_date || '';
-  document.getElementById('jCAE').value    = job.cae_number  || '';
-  document.getElementById('jNotes').value  = job.notes       || '';
+  document.getElementById('jCAE').value    = job.cae_number     || '';
+  document.getElementById('jNotes').value  = job.notes          || '';
   document.getElementById('jobModal').classList.add('show');
 }
 function closeJobModal() { document.getElementById('jobModal').classList.remove('show'); }
 
 async function saveJob() {
-  const wo    = document.getElementById('jWO').value.trim();
-  const name  = document.getElementById('jName').value.trim();
-  const addr  = document.getElementById('jAddr').value.trim();
+  const wo   = document.getElementById('jWO').value.trim();
+  const name = document.getElementById('jName').value.trim();
+  const addr = document.getElementById('jAddr').value.trim();
   if (!wo || !name || !addr) {
     toast('Work Order #, Job Name, and Address are required.', 'warn');
     return;
   }
-  const now = Date.now();
-  let job;
+  const fields = {
+    wo_number:       wo,
+    job_name:        name,
+    address:         addr,
+    job_type:        document.getElementById('jType').value,
+    status:          document.getElementById('jStatus').value,
+    scheduled_date:  document.getElementById('jDate').value || null,
+    cae_number:      document.getElementById('jCAE').value.trim() || null,
+    notes:           document.getElementById('jNotes').value.trim() || null,
+    updated_by_name: currentUser.name,
+  };
   if (editingJobId) {
-    job = await dbGet('jobs', editingJobId);
-    job.wo_number = wo;
-    job.job_name = name;
-    job.address = addr;
-    job.job_type = document.getElementById('jType').value;
-    job.status = document.getElementById('jStatus').value;
-    job.scheduled_date = document.getElementById('jDate').value;
-    job.cae_number = document.getElementById('jCAE').value.trim();
-    job.notes = document.getElementById('jNotes').value.trim();
-    job.updated_at = now;
-    job.updated_by = currentUser.id;
-    job.updated_by_name = currentUser.name;
-    await dbPut('jobs', job);
-    await logActivity(job.id, 'job_updated', `${currentUser.name} edited job details`);
+    const { error } = await sb.from('jobs').update(fields).eq('id', editingJobId);
+    if (error) { toast('Save failed', 'danger'); return; }
+    await logActivity(editingJobId, 'job_updated', `${currentUser.name} edited job details`);
   } else {
-    job = {
-      id: uid('job'),
-      wo_number: wo, job_name: name, address: addr,
-      job_type: document.getElementById('jType').value,
-      status: document.getElementById('jStatus').value,
-      scheduled_date: document.getElementById('jDate').value,
-      cae_number: document.getElementById('jCAE').value.trim(),
-      notes: document.getElementById('jNotes').value.trim(),
-      created_at: now, created_by: currentUser.id, created_by_name: currentUser.name,
-      updated_at: now, updated_by: currentUser.id, updated_by_name: currentUser.name
-    };
-    // ★ SUPABASE: await supabase.from('jobs').insert(job)
-    await dbPut('jobs', job);
+    const { data: job, error } = await sb.from('jobs')
+      .insert({ ...fields, created_by_name: currentUser.name })
+      .select().single();
+    if (error) { toast('Save failed', 'danger'); return; }
     await logActivity(job.id, 'job_created', `${currentUser.name} created the job folder`);
   }
   closeJobModal();
   if (editingJobId && document.getElementById('screenFolder').classList.contains('active')) {
-    toast('Job updated', 'success');
-    openJob(editingJobId);
+    toast('Job updated', 'success'); openJob(editingJobId);
   } else {
-    toast(editingJobId ? 'Job updated' : 'Job created', 'success');
-    renderJobLibrary();
+    toast(editingJobId ? 'Job updated' : 'Job created', 'success'); renderJobLibrary();
   }
 }
 
 /* ═══════════════ JOB FOLDER ═══════════════ */
 async function openJob(jobId) {
   activeJobId = jobId;
-  const job = await dbGet('jobs', jobId);
+  const { data: job } = await sb.from('jobs').select('*').eq('id', jobId).single();
   if (!job) return;
 
   document.getElementById('crumbJob').textContent = job.job_name || job.wo_number;
@@ -1026,14 +1022,14 @@ async function openJob(jobId) {
   document.getElementById('folderUpdated').textContent = relTime(job.updated_at);
   document.getElementById('folderCreatedBy').textContent = job.created_by_name || '—';
 
-  const docs = await dbGetByIndex('documents', 'job_id', jobId);
+  const { data: docs = [] } = await sb.from('documents').select('*').eq('job_id', jobId);
+  docs.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
   document.getElementById('folderDocCount').textContent = docs.length;
   document.getElementById('docTotalCount').textContent = docs.length ? `(${docs.length} total)` : '';
 
   const grid = document.getElementById('docTypeGrid');
   grid.innerHTML = Object.entries(DOC_TYPES).map(([key, def]) => {
-    const myDocs = docs.filter(d => d.doc_type === key)
-                       .sort((a, b) => b.updated_at - a.updated_at);
+    const myDocs = docs.filter(d => d.doc_type === key);
     const itemsHtml = myDocs.length ? `
       <div class="doc-list">
         ${myDocs.map(d => `
@@ -1066,14 +1062,13 @@ async function openJob(jobId) {
   }).join('');
 
   // Activity tab
-  const activity = await dbGetByIndex('activity', 'job_id', jobId);
-  activity.sort((a, b) => b.at - a.at);
+  const { data: activity = [] } = await sb.from('activity_log').select('*').eq('job_id', jobId).order('at', { ascending: false });
   document.getElementById('activityList').innerHTML = activity.length ? activity.map(a => `
     <div class="activity-item">
       <div class="activity-icon">${activityIcon(a.action)}</div>
       <div class="activity-content">
         ${esc(a.summary)}
-        <div class="when">${fmtDateTime(a.at)}</div>
+        <div class="when">${fmtDateTime(a.at || a.created_at)}</div>
       </div>
     </div>`).join('') : '<div class="doc-empty" style="margin:8px;">No activity yet</div>';
 
@@ -1116,34 +1111,25 @@ document.querySelectorAll('.tab').forEach(t => {
 
 /* ═══════════════ DOCUMENT CREATE / OPEN ═══════════════ */
 async function createDoc(type) {
-  const job = await dbGet('jobs', activeJobId);
+  const { data: job } = await sb.from('jobs').select('wo_number').eq('id', activeJobId).single();
   const def = DOC_TYPES[type];
-  const doc = {
-    id: uid('doc'),
-    job_id: activeJobId,
-    doc_type: type,
-    title: `${def.label} — ${job.wo_number}`,
-    payload: {},
-    pdf_url: null,
-    created_at: Date.now(), created_by: currentUser.id, created_by_name: currentUser.name,
-    updated_at: Date.now(), updated_by: currentUser.id, updated_by_name: currentUser.name
-  };
-  // ★ SUPABASE: await supabase.from('documents').insert(doc)
-  await dbPut('documents', doc);
+  const { data: doc, error } = await sb.from('documents').insert({
+    job_id:          activeJobId,
+    doc_type:        type,
+    title:           `${def.label} — ${job.wo_number}`,
+    created_by_name: currentUser.name,
+    updated_by_name: currentUser.name,
+  }).select().single();
+  if (error) { toast('Could not create document', 'danger'); return; }
   await logActivity(activeJobId, 'doc_created', `${currentUser.name} started a new ${def.label}`, doc.id);
-
-  // touch parent job's updated_at
-  job.updated_at = Date.now();
-  job.updated_by_name = currentUser.name;
-  await dbPut('jobs', job);
-
+  await sb.from('jobs').update({ updated_by_name: currentUser.name }).eq('id', activeJobId);
   openDoc(doc.id);
 }
 
 async function openDoc(docId) {
-  const doc = await dbGet('documents', docId);
+  const { data: doc } = await sb.from('documents').select('*').eq('id', docId).single();
   if (!doc) return;
-  const job = await dbGet('jobs', doc.job_id);
+  const { data: job } = await sb.from('jobs').select('*').eq('id', doc.job_id).single();
   activeDocId = doc.id;
   activeDocType = doc.doc_type;
   const def = DOC_TYPES[doc.doc_type];
@@ -1161,7 +1147,7 @@ async function openDoc(docId) {
     ? `<div style="padding:14px 14px 0;">
          <div class="ff-context-banner">
            <span>ℹ️</span>
-           <div><strong>FieldForms</strong> manages its own jobs (with login) — when prompted to create or pick a job inside, use WO <code>${esc(job.wo_number)}</code> · <code>${esc(job.job_name)}</code> so it lines up with this folder.</div>
+           <div><strong>FieldForms</strong> manages its own job list — when creating or picking a job inside, use WO <code>${esc(job.wo_number)}</code> · <code>${esc(job.job_name)}</code> so it lines up with this folder.</div>
          </div>
        </div>`
     : '';
@@ -1230,26 +1216,18 @@ let pendingDocTouch = false;
 async function touchDocOnExit() {
   if (!pendingDocTouch || !activeDocId) return;
   pendingDocTouch = false;
-  const doc = await dbGet('documents', activeDocId);
+  const { data: doc } = await sb.from('documents').select('*').eq('id', activeDocId).single();
   if (!doc) return;
-  doc.updated_at = Date.now();
-  doc.updated_by = currentUser.id;
-  doc.updated_by_name = currentUser.name;
-  await dbPut('documents', doc);
+  await sb.from('documents').update({ updated_by_name: currentUser.name }).eq('id', activeDocId);
   await logActivity(doc.job_id, 'doc_updated', `${currentUser.name} worked on the ${DOC_TYPES[doc.doc_type].label}`, doc.id);
-  const job = await dbGet('jobs', doc.job_id);
-  if (job) {
-    job.updated_at = Date.now();
-    job.updated_by_name = currentUser.name;
-    await dbPut('jobs', job);
-  }
+  await sb.from('jobs').update({ updated_by_name: currentUser.name }).eq('id', doc.job_id);
 }
 
 async function deleteDocFromFolder(docId) {
-  const doc = await dbGet('documents', docId);
+  const { data: doc } = await sb.from('documents').select('*').eq('id', docId).single();
   if (!doc) return;
   showConfirm('Delete document?', `This ${DOC_TYPES[doc.doc_type].label} will be removed from the job folder. The job folder itself stays intact.`, async () => {
-    await dbDelete('documents', docId);
+    await sb.from('documents').delete().eq('id', docId);
     await logActivity(doc.job_id, 'doc_deleted', `${currentUser.name} deleted a ${DOC_TYPES[doc.doc_type].label}`, doc.id);
     toast(`${DOC_TYPES[doc.doc_type].label} deleted`, 'danger');
     openJob(activeJobId);
@@ -1267,8 +1245,8 @@ async function goFolder()  { await touchDocOnExit(); openJob(activeJobId); }
 
 /* ═══════════════ EXPORT (placeholder) ═══════════════ */
 async function exportJob() {
-  const job = await dbGet('jobs', activeJobId);
-  const docs = await dbGetByIndex('documents', 'job_id', activeJobId);
+  const { data: job }  = await sb.from('jobs').select('*').eq('id', activeJobId).single();
+  const { data: docs } = await sb.from('documents').select('*').eq('job_id', activeJobId);
   const blob = new Blob([JSON.stringify({ job, documents: docs }, null, 2)], { type:'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1306,31 +1284,33 @@ document.getElementById('userPicker').addEventListener('change', e => {
 
 /* ═══════════════ DEMO SEED ═══════════════ */
 async function seedIfEmpty() {
-  const existing = await dbGetAll('jobs');
-  if (existing.length) return;
+  const { count } = await sb.from('jobs').select('id', { count: 'exact', head: true });
+  if (count > 0) return;
 
-  const now = Date.now();
   const day = 86400000;
-  const samples = [
+  const now = Date.now();
+  const iso = ms => new Date(ms).toISOString();
+
+  const jobRows = [
     {
       wo_number: 'WO458921', job_name: 'Smith Street pole replacement',
       address: '12 Smith St, Hawera', job_type: 'Project', status: 'active',
       scheduled_date: new Date(now + 3*day).toISOString().slice(0,10),
       cae_number: 'CAE-2026-0412',
       notes: 'OH structure needs full replacement after vehicle impact. LV services to 4 properties.',
-      created_at: now - 5*day, created_by_name: 'Ben Boyne', created_by: 'u_ben',
-      updated_at: now - 2*60*60*1000, updated_by_name: 'Mike Tane',
-      docTypes: ['scoping','jobcard','storeman']
+      created_by_name: 'Ben Boyne', updated_by_name: 'Mike Tane',
+      created_at: iso(now - 5*day), updated_at: iso(now - 2*60*60*1000),
+      _docTypes: ['scoping','jobcard','storeman']
     },
     {
       wo_number: 'WO458877', job_name: 'Eltham Rd transformer fault',
       address: '156 Eltham Rd, Stratford', job_type: 'Fault', status: 'completed',
       scheduled_date: new Date(now - 1*day).toISOString().slice(0,10),
-      cae_number: '',
+      cae_number: null,
       notes: 'After-hours fault response. RMU isolation, transformer swap.',
-      created_at: now - 8*day, created_by_name: 'Sara Patel', created_by: 'u_sara',
-      updated_at: now - 1*day, updated_by_name: 'Sara Patel',
-      docTypes: ['jobcard','asbuilt']
+      created_by_name: 'Sara Patel', updated_by_name: 'Sara Patel',
+      created_at: iso(now - 8*day), updated_at: iso(now - 1*day),
+      _docTypes: ['jobcard','asbuilt']
     },
     {
       wo_number: 'WO459012', job_name: 'Kowhai Ave LV upgrade',
@@ -1338,9 +1318,9 @@ async function seedIfEmpty() {
       scheduled_date: new Date(now + 10*day).toISOString().slice(0,10),
       cae_number: 'CAE-2026-0418',
       notes: 'LV mains upgrade — 4 services to upgrade from 60A to 100A.',
-      created_at: now - 2*day, created_by_name: 'Ben Boyne', created_by: 'u_ben',
-      updated_at: now - 30*60*1000, updated_by_name: 'Ben Boyne',
-      docTypes: ['scoping']
+      created_by_name: 'Ben Boyne', updated_by_name: 'Ben Boyne',
+      created_at: iso(now - 2*day), updated_at: iso(now - 30*60*1000),
+      _docTypes: ['scoping']
     },
     {
       wo_number: 'WO458554', job_name: 'Tasman St HV defect',
@@ -1348,43 +1328,37 @@ async function seedIfEmpty() {
       scheduled_date: new Date(now - 30*day).toISOString().slice(0,10),
       cae_number: 'CAE-2025-1198',
       notes: 'Cracked insulator on HV crossarm. Replaced and tested.',
-      created_at: now - 35*day, created_by_name: 'Dave Wilson', created_by: 'u_dave',
-      updated_at: now - 28*day, updated_by_name: 'Dave Wilson',
-      docTypes: ['jobcard','asbuilt']
+      created_by_name: 'Dave Wilson', updated_by_name: 'Dave Wilson',
+      created_at: iso(now - 35*day), updated_at: iso(now - 28*day),
+      _docTypes: ['jobcard','asbuilt']
     }
   ];
 
-  for (const s of samples) {
-    const job = {
-      id: uid('job'),
-      wo_number: s.wo_number, job_name: s.job_name, address: s.address,
-      job_type: s.job_type, status: s.status, scheduled_date: s.scheduled_date,
-      cae_number: s.cae_number, notes: s.notes,
-      created_at: s.created_at, created_by: s.created_by, created_by_name: s.created_by_name,
-      updated_at: s.updated_at, updated_by: s.created_by, updated_by_name: s.updated_by_name
-    };
-    await dbPut('jobs', job);
-    await dbPut('activity', {
-      id: uid('act'), job_id: job.id, doc_id: null, action: 'job_created',
-      summary: `${s.created_by_name} created the job folder`,
-      actor_id: s.created_by, actor_name: s.created_by_name, at: s.created_at
+  for (const s of jobRows) {
+    const { _docTypes, ...jobData } = s;
+    const { data: job, error } = await sb.from('jobs').insert(jobData).select().single();
+    if (error || !job) continue;
+
+    await sb.from('activity_log').insert({
+      job_id: job.id, action: 'job_created',
+      summary: `${job.created_by_name} created the job folder`,
+      actor_name: job.created_by_name, at: job.created_at
     });
-    for (const dt of s.docTypes) {
-      const doc = {
-        id: uid('doc'), job_id: job.id, doc_type: dt,
-        title: `${DOC_TYPES[dt].label} — ${s.wo_number}`,
-        payload: {},
-        created_at: s.created_at + 3600000,
-        created_by: s.created_by, created_by_name: s.created_by_name,
-        updated_at: s.updated_at,
-        updated_by: s.created_by, updated_by_name: s.updated_by_name
-      };
-      await dbPut('documents', doc);
-      await dbPut('activity', {
-        id: uid('act'), job_id: job.id, doc_id: doc.id, action: 'doc_created',
-        summary: `${s.created_by_name} added a ${DOC_TYPES[dt].label}`,
-        actor_id: s.created_by, actor_name: s.created_by_name, at: doc.created_at
-      });
+
+    for (const dt of _docTypes) {
+      const { data: doc } = await sb.from('documents').insert({
+        job_id: job.id, doc_type: dt,
+        title: `${DOC_TYPES[dt].label} — ${job.wo_number}`,
+        created_by_name: job.created_by_name,
+        updated_by_name: job.updated_by_name,
+      }).select().single();
+      if (doc) {
+        await sb.from('activity_log').insert({
+          job_id: job.id, doc_id: doc.id, action: 'doc_created',
+          summary: `${job.created_by_name} added a ${DOC_TYPES[dt].label}`,
+          actor_name: job.created_by_name
+        });
+      }
     }
   }
 }
@@ -1409,7 +1383,6 @@ function toggleTheme() {
 
 /* ═══════════════ INIT ═══════════════ */
 (async () => {
-  await openDB();
   await seedIfEmpty();
   await renderJobLibrary();
 })();
