@@ -1,0 +1,35 @@
+[build]
+  publish = "hub"
+
+# No build command — the hub is plain HTML/JS with no compile step.
+# Supabase credentials are injected via Netlify environment variables.
+# Set SUPABASE_URL and SUPABASE_ANON_KEY in the Netlify dashboard under
+# Site settings → Environment variables. Do NOT commit them here.
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+# The iframe-embedded apps (jobcard, scoping, storeman, fieldforms) are on
+# the same origin, so SAMEORIGIN is safe. If you ever move them to a
+# separate domain, change this to "ALLOW-FROM <other-domain>".
+
+[[headers]]
+  for = "/apps/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
+
+# fieldforms.html is 9 MB — aggressively cache it so repeat visits are fast.
+[[headers]]
+  for = "/apps/fieldforms.html"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

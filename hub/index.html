@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Downer Field Hub — Prototype</title>
+<style>
+  /* ═══════════════════════════════════════════════════════════════════
+     DESIGN TOKENS — matches your existing Job Card / Storeman / Scoping
+     palette so the unified site feels like part of the same family.
+     ═══════════════════════════════════════════════════════════════════ */
+  :root {
+    --header-bg: #2563a8;
+    --accent: #1e4f8a;
+    --accent-hover: #15406e;
+    --bg: #f0f4f8;
+    --card-bg: #ffffff;
+    --border: #c8d6e5;
+    --border-strong: #94a8c2;
+    --text: #1a2636;
+    --text-light: #5a7090;
+    --text-muted: #8a9bb2;
+    --group-bg: #eaf1fb;
+    --success: #2e7d32;
+    --warning: #b7800a;
+    --danger: #c0392b;
+    --radius: 10px;
+    --radius-lg: 14px;
+    --shadow-sm: 0 2px 6px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 14px rgba(0,0,0,0.08);
+    --font: 'Segoe UI', 'Roboto', Arial, sans-serif;
+  }
+
+  /* ── DARK MODE — palette aligned with Storeman / FieldForms dark themes ── */
+  [data-theme="dark"] {
+    --bg: #0c0e12;
+    --card-bg: #13161c;
+    --border: #2a2f3a;
+    --border-strong: #343b48;
+    --text: #eef0f4;
+    --text-light: #8892a4;
+    --text-muted: #444e60;
+    --group-bg: #1a1e26;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --shadow-sm: 0 2px 6px rgba(0,0,0,0.4);
+    --shadow-md: 0 4px 14px rgba(0,0,0,0.6);
+  }
+  [data-theme="dark"] header { border-bottom-color: var(--border); }
+  [data-theme="dark"] .brand .logo,
+  [data-theme="dark"] .brand .product { color: var(--text); }
+  [data-theme="dark"] .brand .divider { background: var(--border); }
+  [data-theme="dark"] .btn-secondary:hover { background: var(--group-bg); }
+  [data-theme="dark"] .btn-danger { border-color: rgba(239,68,68,0.4); }
+  [data-theme="dark"] .btn-danger:hover { background: rgba(239,68,68,0.12); }
+  [data-theme="dark"] .doc-filter-chip.active { background: var(--text); border-color: var(--text); color: var(--bg); }
+  [data-theme="dark"] .doc-pill.empty { background: var(--group-bg); border-color: var(--border); }
+  [data-theme="dark"] .dash-tile.active .dash-icon    { background: rgba(37,99,168,0.25);  color: #60a5fa; }
+  [data-theme="dark"] .dash-tile.completed .dash-icon { background: rgba(16,185,129,0.2);  color: #10b981; }
+  [data-theme="dark"] .dash-tile.archived .dash-icon  { background: rgba(148,168,194,0.2); color: #8892a4; }
+  [data-theme="dark"] .dash-tile.this-week .dash-icon { background: rgba(245,158,11,0.2);  color: #f59e0b; }
+  [data-theme="dark"] .doc-type-card.scoping  .badge { background: rgba(37,99,168,0.25);  color: #60a5fa; }
+  [data-theme="dark"] .doc-type-card.jobcard  .badge { background: rgba(245,158,11,0.2);  color: #f59e0b; }
+  [data-theme="dark"] .doc-type-card.storeman .badge { background: rgba(167,139,250,0.2); color: #a78bfa; }
+  [data-theme="dark"] .doc-type-card.asbuilt  .badge { background: rgba(16,185,129,0.2);  color: #10b981; }
+  [data-theme="dark"] .proto-banner { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.3); color: #f59e0b; }
+  [data-theme="dark"] .proto-banner strong { color: #fbbf24; }
+  [data-theme="dark"] .proto-banner .banner-close { color: #f59e0b; }
+  [data-theme="dark"] .ff-context-banner { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.3); color: #f59e0b; }
+  [data-theme="dark"] .ff-context-banner strong { color: #fbbf24; }
+  [data-theme="dark"] .ff-context-banner code { background: rgba(255,255,255,0.06); border-color: rgba(245,158,11,0.4); color: #fbbf24; }
+  [data-theme="dark"] .modal-bg { background: rgba(0,0,0,0.75); }
+  [data-theme="dark"] kbd { background: var(--group-bg) !important; color: var(--text) !important; border-color: var(--border) !important; }
+  [data-theme="dark"] .pill-active    { background: rgba(37,99,168,0.25);  color: #60a5fa; }
+  [data-theme="dark"] .pill-completed { background: rgba(16,185,129,0.2);  color: #10b981; }
+  [data-theme="dark"] .pill-archived  { background: rgba(148,168,194,0.2); color: #8892a4; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+  /* ── HEADER (consistent with Job Card) ── */
+  header { background: var(--card-bg); position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.10); border-bottom: 3px solid #dde6f0; }
+  .header-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; padding: 12px 20px; gap: 18px; }
+  .brand { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+  .brand .logo { font-size: 1.5rem; font-weight: 900; letter-spacing: 2.5px; color: #1a1a1a; line-height: 1; }
+  .brand .divider { width: 1px; height: 36px; background: #ccc; }
+  .brand .product { font-size: 1.05rem; font-weight: 800; color: #1a1a1a; letter-spacing: 0.5px; }
+  .brand .tag { font-size: 0.68rem; color: #999; margin-top: 2px; }
+  .header-spacer { flex: 1; }
+  .user-pill { display: flex; align-items: center; gap: 10px; background: var(--group-bg); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px 6px 6px; cursor: pointer; }
+  .user-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--header-bg); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.78rem; }
+  .user-info { font-size: 0.78rem; }
+  .user-info .name { font-weight: 700; color: var(--text); line-height: 1.1; }
+  .user-info .role { color: var(--text-light); font-size: 0.68rem; }
+  .user-pill select { border: none; background: transparent; font-family: var(--font); font-size: 0.78rem; font-weight: 700; color: var(--text); cursor: pointer; outline: none; }
+
+  /* ── SCREENS ── */
+  .screen { display: none; max-width: 1200px; margin: 0 auto; padding: 24px 20px 80px; }
+  .screen.active { display: block; }
+
+  /* ── PAGE HEADER ── */
+  .page-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; gap: 16px; flex-wrap: wrap; }
+  .page-head h1 { font-size: 1.4rem; font-weight: 800; color: var(--text); }
+  .page-head .sub { font-size: 0.85rem; color: var(--text-light); margin-top: 2px; }
+  .breadcrumb { font-size: 0.78rem; color: var(--text-light); margin-bottom: 8px; }
+  .breadcrumb a { color: var(--accent); text-decoration: none; cursor: pointer; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .breadcrumb .sep { margin: 0 6px; color: var(--text-muted); }
+
+  /* ── BUTTONS ── */
+  .btn { display: inline-flex; align-items: center; gap: 8px; border: none; border-radius: 9px; padding: 10px 18px; font-size: 0.88rem; font-weight: 700; cursor: pointer; font-family: var(--font); transition: all 0.15s; -webkit-tap-highlight-color: rgba(0,0,0,0); }
+  .btn-primary { background: var(--header-bg); color: #fff; box-shadow: 0 3px 10px rgba(37,99,168,0.25); }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-secondary { background: var(--card-bg); color: var(--text); border: 1.5px solid var(--border); }
+  .btn-secondary:hover { background: var(--group-bg); border-color: var(--border-strong); }
+  .btn-ghost { background: transparent; color: var(--text-light); border: 1.5px solid transparent; }
+  .btn-ghost:hover { background: var(--group-bg); }
+  .btn-danger { background: var(--card-bg); color: var(--danger); border: 1.5px solid #fcc; }
+  .btn-danger:hover { background: #fff0f0; }
+  .btn-lg { padding: 12px 22px; font-size: 0.95rem; }
+  .btn-sm { padding: 6px 12px; font-size: 0.78rem; }
+  .btn .ico { font-size: 1rem; line-height: 1; }
+
+  /* ── SEARCH / FILTER BAR ── */
+  .toolbar { background: var(--card-bg); border: 1.5px solid var(--border); border-radius: var(--radius-lg); padding: 14px; margin-bottom: 20px; box-shadow: var(--shadow-sm); }
+  .toolbar-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .search-box { flex: 1; min-width: 240px; position: relative; }
+  .search-box input { width: 100%; padding: 10px 14px 10px 38px; border: 1.5px solid var(--border); border-radius: 9px; font-size: 0.92rem; font-family: var(--font); background: var(--bg); }
+  .search-box input:focus { outline: none; border-color: var(--header-bg); background: var(--card-bg); }
+  .search-box::before { content: '🔍'; position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 0.95rem; opacity: 0.5; }
+  .filter-group { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filter-chip { padding: 7px 13px; border: 1.5px solid var(--border); border-radius: 999px; background: var(--card-bg); font-size: 0.78rem; font-weight: 600; color: var(--text-light); cursor: pointer; transition: all 0.12s; }
+  .filter-chip:hover { border-color: var(--border-strong); }
+  .filter-chip.active { background: var(--header-bg); color: #fff; border-color: var(--header-bg); }
+
+  /* ── JOB LIBRARY — list of folders ── */
+  .job-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  .job-row { position: relative; background: var(--card-bg); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 16px 18px 16px 22px; cursor: pointer; transition: all 0.15s; box-shadow: var(--shadow-sm); display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; overflow: hidden; }
+  .job-row::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--border-strong); }
+  .job-row.status-active::before    { background: #2563a8; }
+  .job-row.status-completed::before { background: #2e7d32; }
+  .job-row.status-archived::before  { background: #94a8c2; }
+  .job-row:hover { border-color: var(--header-bg); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  .folder-icon { width: 46px; height: 46px; border-radius: 9px; background: var(--group-bg); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; }
+  .job-main { min-width: 0; }
+  .job-wo { font-size: 0.7rem; font-weight: 700; color: var(--accent); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; }
+  .job-name { font-size: 1rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .job-addr { font-size: 0.82rem; color: var(--text-light); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .job-meta { display: flex; gap: 16px; align-items: center; flex-shrink: 0; font-size: 0.75rem; color: var(--text-light); }
+  .doc-pills { display: flex; gap: 4px; }
+  .doc-pill { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.95rem; font-weight: 800; transition: transform 0.12s; }
+  .doc-pill:hover { transform: translateY(-1px); }
+  .doc-pill.has { background: var(--header-bg); color: #fff; box-shadow: 0 2px 4px rgba(37,99,168,0.3); }
+  .doc-pill.empty { background: #eef2f7; color: var(--text-muted); border: 1px dashed var(--border); opacity: 0.55; }
+  .doc-progress { font-size: 0.72rem; color: var(--text-light); font-weight: 600; min-width: 32px; text-align: center; }
+  .job-dates { text-align: right; min-width: 100px; }
+  .job-dates .label { font-size: 0.62rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .job-dates .val { font-size: 0.78rem; color: var(--text); font-weight: 600; }
+
+  /* ── EMPTY STATE ── */
+  .empty { text-align: center; padding: 70px 20px; color: var(--text-light); background: var(--card-bg); border: 1.5px dashed var(--border); border-radius: var(--radius-lg); }
+  .empty .icon { font-size: 3.5rem; opacity: 0.4; margin-bottom: 12px; }
+  .empty h3 { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .empty p { font-size: 0.86rem; line-height: 1.5; max-width: 380px; margin: 0 auto; }
+
+  /* ── JOB FOLDER VIEW ── */
+  .folder-header { background: var(--card-bg); border: 1.5px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; box-shadow: var(--shadow-sm); }
+  .folder-header-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+  .folder-title-block .wo-large { font-size: 0.78rem; font-weight: 800; letter-spacing: 1.5px; color: var(--accent); text-transform: uppercase; margin-bottom: 4px; }
+  .folder-title-block h2 { font-size: 1.5rem; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+  .folder-title-block .addr { font-size: 0.92rem; color: var(--text-light); }
+  .folder-actions { display: flex; gap: 8px; }
+  .folder-meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .meta-cell .label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin-bottom: 4px; }
+  .meta-cell .value { font-size: 0.92rem; color: var(--text); font-weight: 600; }
+
+  /* ── DOCUMENT TYPE TILES ── */
+  .doc-section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; margin-top: 6px; }
+  .doc-section-head h3 { font-size: 1.05rem; font-weight: 800; color: var(--text); }
+  .doc-section-head .count { font-size: 0.78rem; color: var(--text-light); margin-left: 8px; font-weight: 500; }
+
+  .doc-type-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 28px; }
+  .doc-type-card { background: var(--card-bg); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow-sm); }
+  .doc-type-card .head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .doc-type-card .badge { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+  .doc-type-card.scoping  .badge { background: #e3f2fd; color: #1565c0; }
+  .doc-type-card.jobcard  .badge { background: #fff3e0; color: #e65100; }
+  .doc-type-card.storeman .badge { background: #f3e5f5; color: #6a1b9a; }
+  .doc-type-card.asbuilt  .badge { background: #e8f5e9; color: #2e7d32; }
+  .doc-type-card .title-block { flex: 1; min-width: 0; }
+  .doc-type-card .name { font-size: 0.92rem; font-weight: 700; color: var(--text); }
+  .doc-type-card .desc { font-size: 0.74rem; color: var(--text-light); }
+
+  .doc-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .doc-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--bg); border-radius: 8px; border: 1px solid transparent; cursor: pointer; }
+  .doc-item:hover { border-color: var(--border); background: var(--group-bg); }
+  .doc-item .doc-name { flex: 1; font-size: 0.82rem; font-weight: 600; color: var(--text); }
+  .doc-item .doc-meta { font-size: 0.68rem; color: var(--text-light); text-align: right; line-height: 1.3; }
+  .doc-item .doc-meta .by { color: var(--accent); font-weight: 600; }
+  .doc-empty { padding: 14px 12px; text-align: center; font-size: 0.78rem; color: var(--text-muted); background: var(--bg); border-radius: 8px; border: 1px dashed var(--border); }
+
+  /* ── CREATE-JOB FORM (modal) ── */
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(20,30,45,0.5); z-index: 200; align-items: center; justify-content: center; padding: 16px; }
+  .modal-bg.show { display: flex; }
+  .modal { background: var(--card-bg); border-radius: var(--radius-lg); width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+  .modal-head { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .modal-head h3 { font-size: 1.1rem; font-weight: 800; }
+  .modal-close { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text-light); width: 32px; height: 32px; border-radius: 6px; }
+  .modal-close:hover { background: var(--group-bg); }
+  .modal-body { padding: 20px 22px; }
+  .modal-foot { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; background: var(--bg); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 0.78rem; font-weight: 700; color: var(--text); margin-bottom: 5px; }
+  .field label .req { color: var(--danger); }
+  .field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.92rem; font-family: var(--font); background: var(--card-bg); }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--header-bg); }
+  .field textarea { min-height: 70px; resize: vertical; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* ── ACTIVITY / AUDIT TIMELINE ── */
+  .activity-list { background: var(--card-bg); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 8px; }
+  .activity-item { display: flex; gap: 12px; padding: 10px 12px; border-radius: 8px; }
+  .activity-item:hover { background: var(--bg); }
+  .activity-icon { width: 30px; height: 30px; border-radius: 50%; background: var(--group-bg); display: flex; align-items: center; justify-content: center; font-size: 0.92rem; flex-shrink: 0; }
+  .activity-content { flex: 1; font-size: 0.82rem; }
+  .activity-content .who { font-weight: 700; color: var(--accent); }
+  .activity-content .when { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
+
+  /* ── TABS ── */
+  .tabs { display: flex; gap: 2px; border-bottom: 2px solid var(--border); margin-bottom: 18px; overflow-x: auto; }
+  .tab { padding: 11px 18px; font-size: 0.86rem; font-weight: 700; color: var(--text-light); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; white-space: nowrap; background: none; border-left: none; border-right: none; border-top: none; font-family: var(--font); }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--header-bg); border-bottom-color: var(--header-bg); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── PROTO BANNER ── */
+  .proto-banner { background: linear-gradient(90deg, #fff8e1, #fffdf5); border: 1px solid #f5dfa0; color: #7a5a00; padding: 10px 16px; border-radius: 8px; font-size: 0.8rem; margin-bottom: 16px; display: flex; gap: 10px; align-items: flex-start; position: relative; }
+  .proto-banner strong { color: #5a4400; }
+  .proto-banner .banner-close { background: none; border: none; cursor: pointer; color: #7a5a00; opacity: 0.6; font-size: 1rem; padding: 2px 6px; margin-left: auto; line-height: 1; flex-shrink: 0; }
+  .proto-banner .banner-close:hover { opacity: 1; }
+
+  /* ── DASHBOARD STRIP — quick stats above library ── */
+  .dash-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .dash-tile { background: var(--card-bg); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow-sm); display: flex; align-items: center; gap: 12px; }
+  .dash-tile .dash-icon { width: 38px; height: 38px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; background: var(--group-bg); }
+  .dash-tile.active .dash-icon    { background: #e3f2fd; color: #1565c0; }
+  .dash-tile.completed .dash-icon { background: #e8f5e9; color: #2e7d32; }
+  .dash-tile.archived .dash-icon  { background: #eef2f7; color: #5a7090; }
+  .dash-tile.this-week .dash-icon { background: #fff3e0; color: #e65100; }
+  .dash-tile .dash-num { font-size: 1.4rem; font-weight: 800; color: var(--text); line-height: 1.1; }
+  .dash-tile .dash-lbl { font-size: 0.72rem; color: var(--text-light); font-weight: 600; }
+
+  /* ── TOAST ── */
+  .toast-wrap { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 300; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+  .toast { background: #1a2636; color: #fff; padding: 10px 22px; border-radius: 999px; font-size: 0.86rem; font-weight: 600; box-shadow: 0 6px 20px rgba(0,0,0,0.3); opacity: 0; transform: translateY(8px); transition: all 0.22s ease-out; pointer-events: auto; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.success { background: var(--success); }
+  .toast.warn    { background: var(--warning); }
+  .toast.danger  { background: var(--danger); }
+
+  /* ── STATUS PILLS ── */
+  .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.74rem; font-weight: 700; }
+  .pill-active    { background: #e3f2fd; color: #1565c0; }
+  .pill-completed { background: #e8f5e9; color: #2e7d32; }
+  .pill-archived  { background: #eef2f7; color: #5a7090; }
+
+  /* ── THEME TOGGLE BUTTON ── */
+  .btn-theme-toggle { background: none; border: 1.5px solid var(--border); border-radius: 8px; color: var(--text-light); font-size: 1.05rem; width: 36px; height: 36px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; line-height: 1; }
+  .btn-theme-toggle:hover { background: var(--group-bg); color: var(--text); border-color: var(--border-strong); }
+
+  /* ── DOC TYPE FILTER (library) ── */
+  .doc-filter-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding-top: 4px; }
+  .doc-filter-row .lbl { font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .doc-filter-chip { padding: 6px 12px; border: 1.5px solid var(--border); border-radius: 999px; background: var(--card-bg); font-size: 0.74rem; font-weight: 600; color: var(--text-light); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+  .doc-filter-chip:hover { border-color: var(--border-strong); }
+  .doc-filter-chip.active { background: #1a2636; color: #fff; border-color: #1a2636; }
+  .doc-filter-chip .ico { font-size: 0.86rem; }
+
+  /* ── DOC HOST: full-bleed iframe wrapper for embedded apps ── */
+  .doc-host { background: var(--card-bg); border: 1.5px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; }
+  .doc-host iframe { width: 100%; height: calc(100vh - 230px); min-height: 560px; border: 0; display: block; background: var(--card-bg); opacity: 0; transition: opacity 0.25s ease-out; }
+  .doc-host iframe.ready { opacity: 1; }
+  .doc-host-loading { padding: 60px 20px; text-align: center; color: var(--text-light); font-size: 0.9rem; }
+  .doc-host-loading .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--header-bg); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 14px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ff-context-banner { background: linear-gradient(90deg, #fff8e1, #fffdf5); border: 1px solid #f5dfa0; color: #7a5a00; padding: 10px 16px; border-radius: 8px; font-size: 0.82rem; margin-bottom: 12px; display: flex; gap: 10px; align-items: flex-start; }
+  .ff-context-banner strong { color: #5a4400; }
+  .ff-context-banner code { background: var(--card-bg); padding: 1px 6px; border-radius: 4px; border: 1px solid #f0d590; font-weight: 700; }
+
+  /* On the doc screen, breadcrumb + page-head are slightly compressed
+     so the iframe gets more vertical space. */
+  #screenDoc .page-head { margin-bottom: 12px; }
+  #screenDoc .breadcrumb { margin-bottom: 6px; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 720px) {
+    .header-inner { padding: 10px 14px; gap: 10px; }
+    .brand .product { font-size: 0.95rem; }
+    .user-info .role { display: none; }
+    .job-row { grid-template-columns: auto 1fr; }
+    .job-meta { grid-column: 1 / -1; justify-content: space-between; padding-top: 10px; border-top: 1px solid var(--border); margin-top: 4px; }
+    .field-row { grid-template-columns: 1fr; }
+    .page-head h1 { font-size: 1.2rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     HEADER
+     ════════════════════════════════════════════════════════════════════ -->
+<header>
+  <div class="header-inner">
+    <div class="brand">
+      <div>
+        <div class="logo">DOWNER</div>
+      </div>
+      <div class="divider"></div>
+      <div>
+        <div class="product">Field Hub</div>
+        <div class="tag">Energy Valley · Job paperwork &amp; tracking</div>
+      </div>
+    </div>
+    <div class="header-spacer"></div>
+    <!-- Mock auth: in production this is wired to Supabase Auth.
+         The dropdown here lets you simulate different users for the prototype. -->
+    <div class="user-pill">
+      <div class="user-avatar" id="userAvatar">BB</div>
+      <div class="user-info">
+        <div class="name" id="userName">Ben Boyne</div>
+        <div class="role">Coordinator</div>
+      </div>
+      <select id="userPicker" title="Switch user (prototype only)">
+        <option value="ben">Ben Boyne</option>
+        <option value="mike">Mike Tane</option>
+        <option value="sara">Sara Patel</option>
+        <option value="dave">Dave Wilson</option>
+      </select>
+    </div>
+    <button id="themeToggle" class="btn-theme-toggle" onclick="toggleTheme()" title="Toggle light / dark mode" aria-label="Toggle colour theme">🌙</button>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     SCREEN 1: JOB LIBRARY (the landing screen — searchable folders)
+     ════════════════════════════════════════════════════════════════════ -->
+<section class="screen active" id="screenLibrary">
+  <div class="proto-banner" id="protoBanner">
+    <span>🛠️</span>
+    <div><strong>Field Hub prototype.</strong> Job folder data lives in your browser (IndexedDB). Opening any document launches the matching app (Scoping / Job Card / Stores / FieldForms) with the WO #, name and address pre-filled — your existing apps still own their drafts.</div>
+    <button class="banner-close" onclick="dismissProtoBanner()" title="Dismiss">×</button>
+  </div>
+
+  <!-- At-a-glance dashboard strip — quick stats above the library. -->
+  <div class="dash-strip" id="dashStrip"></div>
+
+  <div class="page-head">
+    <div>
+      <h1>Job Library</h1>
+      <div class="sub">Every job is a folder. Search by Work Order #, name, address, or staff. <span style="color:var(--text-muted);">Press <kbd style="border:1px solid var(--border);border-bottom-width:2px;border-radius:4px;padding:1px 5px;font-family:var(--font);font-size:0.7rem;background:#fff;">N</kbd> for a new job.</span></div>
+    </div>
+    <button class="btn btn-primary btn-lg" onclick="openCreateJob()">
+      <span class="ico">＋</span> New Job
+    </button>
+  </div>
+
+  <div class="toolbar">
+    <div class="toolbar-row">
+      <div class="search-box">
+        <input type="text" id="jobSearch" placeholder="Search Work Order #, job name, address, staff…" oninput="renderJobLibrary()">
+      </div>
+    </div>
+    <div class="toolbar-row" style="margin-top:10px;">
+      <div class="filter-group" id="statusFilters">
+        <button class="filter-chip active" data-status="all">All</button>
+        <button class="filter-chip" data-status="active">Active</button>
+        <button class="filter-chip" data-status="completed">Completed</button>
+        <button class="filter-chip" data-status="archived">Archived</button>
+      </div>
+      <div style="flex:1"></div>
+      <select id="sortPicker" class="filter-chip" style="padding:7px 26px 7px 13px;cursor:pointer;" onchange="renderJobLibrary()">
+        <option value="updated">Most recently updated</option>
+        <option value="created">Most recently created</option>
+        <option value="wo">Work Order # ↑</option>
+        <option value="name">Job name A–Z</option>
+      </select>
+    </div>
+    <!-- Doc-type filter — "show jobs that have/don't have a particular doc". -->
+    <div class="toolbar-row doc-filter-row" style="margin-top:10px;">
+      <span class="lbl">Has doc:</span>
+      <button class="doc-filter-chip active" data-doc="any">Any</button>
+      <button class="doc-filter-chip" data-doc="scoping"><span class="ico">📋</span> Scoping</button>
+      <button class="doc-filter-chip" data-doc="jobcard"><span class="ico">📝</span> Job Card</button>
+      <button class="doc-filter-chip" data-doc="storeman"><span class="ico">📦</span> Stores</button>
+      <button class="doc-filter-chip" data-doc="asbuilt"><span class="ico">✅</span> As-Built</button>
+      <button class="doc-filter-chip" data-doc="missing-jobcard" title="Jobs with anything else but no Job Card yet">⚠️ Missing Job Card</button>
+    </div>
+  </div>
+
+  <div id="jobList" class="job-grid"></div>
+  <div id="jobEmpty" class="empty" style="display:none;">
+    <div class="icon">📁</div>
+    <h3>No jobs match that search</h3>
+    <p>Try a different work order number, address, or status filter — or create a new job to get started.</p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     SCREEN 2: JOB FOLDER (one job, all its docs)
+     ════════════════════════════════════════════════════════════════════ -->
+<section class="screen" id="screenFolder">
+  <div class="breadcrumb">
+    <a onclick="goLibrary()">Job Library</a>
+    <span class="sep">›</span>
+    <span id="crumbJob">Job</span>
+  </div>
+
+  <div class="folder-header">
+    <div class="folder-header-top">
+      <div class="folder-title-block">
+        <div class="wo-large" id="folderWO">WO #</div>
+        <h2 id="folderName">Job name</h2>
+        <div class="addr" id="folderAddr">Address</div>
+      </div>
+      <div class="folder-actions">
+        <button class="btn btn-secondary btn-sm" onclick="editJob()">✎ Edit details</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportJob()">⬇ Export folder</button>
+      </div>
+    </div>
+    <div class="folder-meta-grid">
+      <div class="meta-cell">
+        <div class="label">Status</div>
+        <div class="value" id="folderStatus">—</div>
+      </div>
+      <div class="meta-cell">
+        <div class="label">Job Type</div>
+        <div class="value" id="folderType">—</div>
+      </div>
+      <div class="meta-cell">
+        <div class="label">Created</div>
+        <div class="value" id="folderCreated">—</div>
+      </div>
+      <div class="meta-cell">
+        <div class="label">Last activity</div>
+        <div class="value" id="folderUpdated">—</div>
+      </div>
+      <div class="meta-cell">
+        <div class="label">Created by</div>
+        <div class="value" id="folderCreatedBy">—</div>
+      </div>
+      <div class="meta-cell">
+        <div class="label">Documents</div>
+        <div class="value" id="folderDocCount">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="docs">Documents</button>
+    <button class="tab" data-tab="activity">Activity</button>
+    <button class="tab" data-tab="details">Job details</button>
+  </div>
+
+  <!-- DOCUMENTS TAB -->
+  <div class="tab-panel active" id="tabDocs">
+    <div class="doc-section-head">
+      <h3>Paperwork <span class="count" id="docTotalCount"></span></h3>
+    </div>
+    <div class="doc-type-grid" id="docTypeGrid">
+      <!-- 4 doc-type cards rendered here -->
+    </div>
+  </div>
+
+  <!-- ACTIVITY TAB -->
+  <div class="tab-panel" id="tabActivity">
+    <div class="activity-list" id="activityList"></div>
+  </div>
+
+  <!-- DETAILS TAB -->
+  <div class="tab-panel" id="tabDetails">
+    <div class="folder-header" style="margin-bottom:0;">
+      <div id="detailsContent"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     SCREEN 3: DOCUMENT VIEW / EDIT
+     This is where the existing app (Job Card / Scoping / Storeman / As-Built)
+     would load. For the prototype, we show a placeholder + the meta the doc
+     captured.
+     ════════════════════════════════════════════════════════════════════ -->
+<section class="screen" id="screenDoc">
+  <div class="breadcrumb">
+    <a onclick="goLibrary()">Job Library</a>
+    <span class="sep">›</span>
+    <a onclick="goFolder()" id="crumbFolderLink">Job</a>
+    <span class="sep">›</span>
+    <span id="crumbDoc">Document</span>
+  </div>
+
+  <div class="page-head">
+    <div>
+      <h1 id="docTitle">Document</h1>
+      <div class="sub" id="docSub">—</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary" onclick="goFolder()">← Back to folder</button>
+    </div>
+  </div>
+
+  <div class="doc-host" id="docHost"></div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     CREATE / EDIT JOB MODAL
+     ════════════════════════════════════════════════════════════════════ -->
+<div class="modal-bg" id="jobModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="jobModalTitle">New Job</h3>
+      <button class="modal-close" onclick="closeJobModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Work Order # <span class="req">*</span></label>
+        <input type="text" id="jWO" placeholder="e.g. WO123456 or 500-12345">
+      </div>
+      <div class="field">
+        <label>Job Name <span class="req">*</span></label>
+        <input type="text" id="jName" placeholder="e.g. Smith St transformer replacement">
+      </div>
+      <div class="field">
+        <label>Site Address <span class="req">*</span></label>
+        <input type="text" id="jAddr" placeholder="e.g. 12 Smith St, Hawera">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Job Type</label>
+          <select id="jType">
+            <option value="Project">Project</option>
+            <option value="Fault">Fault</option>
+            <option value="Defect">Defect</option>
+            <option value="Maintenance">Maintenance</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Status</label>
+          <select id="jStatus">
+            <option value="active">Active</option>
+            <option value="completed">Completed</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Scheduled Date</label>
+          <input type="date" id="jDate">
+        </div>
+        <div class="field">
+          <label>CAE / Reference #</label>
+          <input type="text" id="jCAE" placeholder="Optional">
+        </div>
+      </div>
+      <div class="field">
+        <label>Notes</label>
+        <textarea id="jNotes" placeholder="Any extra context for the team…"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeJobModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveJob()">Save Job</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     CONFIRM-DELETE MODAL
+     ════════════════════════════════════════════════════════════════════ -->
+<div class="modal-bg" id="confirmModal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-head"><h3 id="confirmTitle">Confirm</h3></div>
+    <div class="modal-body"><p id="confirmMsg" style="font-size:0.92rem;color:var(--text-light);line-height:1.55;"></p></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeConfirm()">Cancel</button>
+      <button class="btn btn-danger" id="confirmOk">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DATA MODEL — designed to map directly onto Supabase tables.
+   ═══════════════════════════════════════════════════════════════════════
+
+   When you wire this up to Supabase, the schema lines up like this:
+
+   ┌───── jobs ──────────────────────────────────────────────┐
+   │ id            uuid pk                                   │
+   │ wo_number     text  (the spine — indexed, unique-ish)   │
+   │ job_name      text                                      │
+   │ address       text                                      │
+   │ job_type      text  (Project|Fault|Defect|Maintenance)  │
+   │ status        text  (active|completed|archived)         │
+   │ scheduled_date date                                     │
+   │ cae_number    text                                      │
+   │ notes         text                                      │
+   │ created_at    timestamptz default now()                 │
+   │ created_by    uuid references auth.users                │
+   │ updated_at    timestamptz                               │
+   └─────────────────────────────────────────────────────────┘
+
+   ┌───── documents ─────────────────────────────────────────┐
+   │ id            uuid pk                                   │
+   │ job_id        uuid references jobs(id)  -- the link!    │
+   │ doc_type      text  (scoping|jobcard|storeman|asbuilt)  │
+   │ title         text                                      │
+   │ payload       jsonb -- the actual form data             │
+   │ pdf_url       text  -- supabase storage url             │
+   │ created_at    timestamptz default now()                 │
+   │ created_by    uuid references auth.users                │
+   │ updated_at    timestamptz                               │
+   │ updated_by    uuid                                      │
+   └─────────────────────────────────────────────────────────┘
+
+   ┌───── activity_log ──────────────────────────────────────┐
+   │ id, job_id, doc_id, action, actor, at, summary          │
+   └─────────────────────────────────────────────────────────┘
+
+   For the prototype I'm using IndexedDB with the same shape, so
+   swapping in supabase.from('jobs').select() etc. is mechanical.
+   Search points are marked with ★ SUPABASE in comments.
+═══════════════════════════════════════════════════════════════════════ */
+
+/* ── USERS (mock; in prod comes from supabase.auth.getUser()) ── */
+const USERS = {
+  ben:  { id:'u_ben',  name:'Ben Boyne',   initials:'BB', role:'Coordinator' },
+  mike: { id:'u_mike', name:'Mike Tane',   initials:'MT', role:'Field Tech' },
+  sara: { id:'u_sara', name:'Sara Patel',  initials:'SP', role:'Engineer' },
+  dave: { id:'u_dave', name:'Dave Wilson', initials:'DW', role:'Field Tech' }
+};
+let currentUser = USERS.ben;
+
+/* ── DOC TYPES — the four apps that attach to a job folder ── */
+const DOC_TYPES = {
+  scoping:  { label:'Scoping',     icon:'📋', desc:'Site survey & job scope',      cls:'scoping',  app:'apps/scoping.html'    },
+  jobcard:  { label:'Job Card',    icon:'📝', desc:'Reactive works record',        cls:'jobcard',  app:'apps/jobcard.html'    },
+  storeman: { label:'Stores',      icon:'📦', desc:'Materials issue sheet',        cls:'storeman', app:'apps/storeman.html'   },
+  asbuilt:  { label:'As-Built',    icon:'✅', desc:'FieldForms PDF as-built',      cls:'asbuilt',  app:'apps/fieldforms.html' }
+};
+
+/* ═══════════════ INDEXEDDB (same pattern as Job Card V1.6) ═══════════════ */
+const DB_NAME = 'DownerFieldHub', DB_VER = 1;
+let db = null;
+
+function openDB() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, DB_VER);
+    r.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('jobs')) {
+        const j = d.createObjectStore('jobs', { keyPath:'id' });
+        j.createIndex('updated_at','updated_at');
+        j.createIndex('wo_number','wo_number');
+      }
+      if (!d.objectStoreNames.contains('documents')) {
+        const doc = d.createObjectStore('documents', { keyPath:'id' });
+        doc.createIndex('job_id','job_id');
+      }
+      if (!d.objectStoreNames.contains('activity')) {
+        const a = d.createObjectStore('activity', { keyPath:'id' });
+        a.createIndex('job_id','job_id');
+        a.createIndex('at','at');
+      }
+    };
+    r.onsuccess = e => { db = e.target.result; res(db); };
+    r.onerror   = e => rej(e.target.error);
+  });
+}
+function tx(store, mode='readonly') { return db.transaction(store, mode).objectStore(store); }
+function dbGetAll(store, indexName) {
+  return new Promise((res, rej) => {
+    const s = tx(store);
+    const r = indexName ? s.index(indexName).getAll() : s.getAll();
+    r.onsuccess = e => res(e.target.result || []);
+    r.onerror   = e => rej(e.target.error);
+  });
+}
+function dbGetByIndex(store, indexName, value) {
+  return new Promise((res, rej) => {
+    const r = tx(store).index(indexName).getAll(value);
+    r.onsuccess = e => res(e.target.result || []);
+    r.onerror   = e => rej(e.target.error);
+  });
+}
+function dbGet(store, id) {
+  return new Promise((res, rej) => {
+    const r = tx(store).get(id);
+    r.onsuccess = e => res(e.target.result);
+    r.onerror   = e => rej(e.target.error);
+  });
+}
+function dbPut(store, obj) {
+  return new Promise((res, rej) => {
+    const r = tx(store, 'readwrite').put(obj);
+    r.onsuccess = () => res();
+    r.onerror   = e => rej(e.target.error);
+  });
+}
+function dbDelete(store, id) {
+  return new Promise((res, rej) => {
+    const r = tx(store, 'readwrite').delete(id);
+    r.onsuccess = () => res();
+    r.onerror   = e => rej(e.target.error);
+  });
+}
+
+/* ═══════════════ HELPERS ═══════════════ */
+const uid = (p='id') => `${p}_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const fmtDate = ts => ts ? new Date(ts).toLocaleDateString('en-NZ', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+const fmtDateTime = ts => ts ? new Date(ts).toLocaleString('en-NZ', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
+const relTime = ts => {
+  if (!ts) return '—';
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff/60000), h = Math.floor(m/60), d = Math.floor(h/24);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  if (h < 24) return `${h}h ago`;
+  if (d < 7) return `${d}d ago`;
+  return fmtDate(ts);
+};
+
+/* ═══════════════ ACTIVITY LOG ═══════════════ */
+async function logActivity(job_id, action, summary, doc_id=null) {
+  // ★ SUPABASE: replace with supabase.from('activity_log').insert({...})
+  const entry = {
+    id: uid('act'), job_id, doc_id, action, summary,
+    actor_id: currentUser.id, actor_name: currentUser.name,
+    at: Date.now()
+  };
+  await dbPut('activity', entry);
+}
+
+/* ═══════════════ STATE ═══════════════ */
+let activeFilter = 'all';
+let activeDocFilter = 'any';
+let activeJobId = null;
+let activeDocId = null;
+let activeDocType = null;
+let editingJobId = null; // null = creating; otherwise editing
+
+/* ═══════════════ JOB LIBRARY ═══════════════ */
+async function renderJobLibrary() {
+  // ★ SUPABASE: const { data: jobs } = await supabase.from('jobs').select('*, documents(count)').order('updated_at', { ascending: false })
+  const jobs = await dbGetAll('jobs');
+  const allDocs = await dbGetAll('documents');
+  const docsByJob = {};
+  allDocs.forEach(d => { (docsByJob[d.job_id] = docsByJob[d.job_id] || []).push(d); });
+
+  // Render dashboard tiles every time (cheap; reflects new data immediately).
+  renderDashStrip(jobs, allDocs);
+
+  const q = (document.getElementById('jobSearch').value || '').trim().toLowerCase();
+  const sort = document.getElementById('sortPicker').value;
+
+  let filtered = jobs.filter(j => {
+    if (activeFilter !== 'all' && j.status !== activeFilter) return false;
+
+    // Doc-type filter
+    const types = new Set((docsByJob[j.id] || []).map(d => d.doc_type));
+    if (activeDocFilter === 'missing-jobcard') {
+      // "anything but no jobcard" — at least one other doc, no jobcard
+      if (types.has('jobcard')) return false;
+      if (types.size === 0) return false;
+    } else if (activeDocFilter !== 'any') {
+      if (!types.has(activeDocFilter)) return false;
+    }
+
+    if (!q) return true;
+    return [j.wo_number, j.job_name, j.address, j.cae_number, j.notes, j.created_by_name]
+      .some(v => (v || '').toLowerCase().includes(q));
+  });
+
+  filtered.sort((a, b) => {
+    if (sort === 'created') return b.created_at - a.created_at;
+    if (sort === 'wo')      return (a.wo_number || '').localeCompare(b.wo_number || '');
+    if (sort === 'name')    return (a.job_name  || '').localeCompare(b.job_name  || '');
+    return b.updated_at - a.updated_at; // default: updated
+  });
+
+  const list = document.getElementById('jobList');
+  const empty = document.getElementById('jobEmpty');
+  if (!filtered.length) {
+    list.innerHTML = '';
+    // Different empty-state copy when there are simply no jobs at all.
+    const hasNothing = jobs.length === 0;
+    empty.innerHTML = hasNothing
+      ? `<div class="icon">📁</div><h3>No jobs yet</h3><p>Create your first job folder to get started — Work Order #, name and address are all you need.</p><button class="btn btn-primary" style="margin-top:14px;" onclick="openCreateJob()">＋ New Job</button>`
+      : `<div class="icon">📁</div><h3>No jobs match that search</h3><p>Try a different work order number, address, or status filter — or create a new job to get started.</p>`;
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  list.innerHTML = filtered.map(j => {
+    const docs = docsByJob[j.id] || [];
+    const types = new Set(docs.map(d => d.doc_type));
+    // Use the doc-type icon, not just the first letter — much more glanceable.
+    const pills = Object.entries(DOC_TYPES).map(([k, v]) =>
+      `<div class="doc-pill ${types.has(k) ? 'has' : 'empty'}" title="${v.label}${types.has(k) ? '' : ' — none yet'}">${v.icon}</div>`
+    ).join('');
+    const total = Object.keys(DOC_TYPES).length;
+    return `
+      <div class="job-row status-${esc(j.status || 'active')}" onclick="openJob('${j.id}')">
+        <div class="folder-icon">📁</div>
+        <div class="job-main">
+          <div class="job-wo">WO ${esc(j.wo_number || '—')}${j.cae_number ? ` · CAE ${esc(j.cae_number)}` : ''}${j.status && j.status !== 'active' ? ` · <span style="color:var(--text-muted);">${esc(j.status)}</span>` : ''}</div>
+          <div class="job-name">${esc(j.job_name || 'Untitled job')}</div>
+          <div class="job-addr">📍 ${esc(j.address || 'No address')}</div>
+        </div>
+        <div class="job-meta">
+          <div class="doc-pills">${pills}</div>
+          <div class="doc-progress">${types.size}/${total}</div>
+          <div class="job-dates">
+            <div class="label">Updated</div>
+            <div class="val">${relTime(j.updated_at)}</div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* Dashboard strip — at-a-glance totals above the library. Recomputed each render. */
+function renderDashStrip(jobs, allDocs) {
+  const dash = document.getElementById('dashStrip');
+  if (!dash) return;
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const counts = {
+    active:    jobs.filter(j => j.status === 'active').length,
+    completed: jobs.filter(j => j.status === 'completed').length,
+    archived:  jobs.filter(j => j.status === 'archived').length,
+    thisWeek:  jobs.filter(j => j.updated_at >= weekAgo).length
+  };
+  dash.innerHTML = `
+    <div class="dash-tile active">
+      <div class="dash-icon">🟢</div>
+      <div><div class="dash-num">${counts.active}</div><div class="dash-lbl">Active jobs</div></div>
+    </div>
+    <div class="dash-tile this-week">
+      <div class="dash-icon">⚡</div>
+      <div><div class="dash-num">${counts.thisWeek}</div><div class="dash-lbl">Touched this week</div></div>
+    </div>
+    <div class="dash-tile completed">
+      <div class="dash-icon">✓</div>
+      <div><div class="dash-num">${counts.completed}</div><div class="dash-lbl">Completed</div></div>
+    </div>
+    <div class="dash-tile archived">
+      <div class="dash-icon">📦</div>
+      <div><div class="dash-num">${counts.archived}</div><div class="dash-lbl">Archived</div></div>
+    </div>`;
+}
+
+document.getElementById('statusFilters').addEventListener('click', e => {
+  if (!e.target.classList.contains('filter-chip')) return;
+  document.querySelectorAll('#statusFilters .filter-chip').forEach(c => c.classList.remove('active'));
+  e.target.classList.add('active');
+  activeFilter = e.target.dataset.status;
+  renderJobLibrary();
+});
+
+/* Doc-type filter chips */
+document.querySelector('.doc-filter-row').addEventListener('click', e => {
+  const chip = e.target.closest('.doc-filter-chip');
+  if (!chip) return;
+  document.querySelectorAll('.doc-filter-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  activeDocFilter = chip.dataset.doc;
+  renderJobLibrary();
+});
+
+/* Dismissible prototype banner — remembers state in localStorage */
+function dismissProtoBanner() {
+  const banner = document.getElementById('protoBanner');
+  if (banner) banner.style.display = 'none';
+  try { localStorage.setItem('fieldhub.protoBannerDismissed', '1'); } catch(e) {}
+}
+(function initProtoBanner() {
+  try {
+    if (localStorage.getItem('fieldhub.protoBannerDismissed') === '1') {
+      const banner = document.getElementById('protoBanner');
+      if (banner) banner.style.display = 'none';
+    }
+  } catch(e) { /* localStorage may not be available — ignore */ }
+})();
+
+/* Keyboard shortcut: N for new job (only when not typing in an input) */
+document.addEventListener('keydown', e => {
+  if (e.key.toLowerCase() !== 'n') return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+  if (!document.getElementById('screenLibrary').classList.contains('active')) return;
+  if (document.getElementById('jobModal').classList.contains('show')) return;
+  e.preventDefault();
+  openCreateJob();
+});
+
+/* Toast helper — used throughout for confirmations like "Job saved". */
+function toast(msg, kind = '') {
+  let wrap = document.getElementById('toastWrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'toastWrap';
+    wrap.className = 'toast-wrap';
+    document.body.appendChild(wrap);
+  }
+  const t = document.createElement('div');
+  t.className = `toast ${kind}`;
+  t.textContent = msg;
+  wrap.appendChild(t);
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => {
+    t.classList.remove('show');
+    setTimeout(() => t.remove(), 250);
+  }, 2000);
+}
+
+/* ═══════════════ CREATE / EDIT JOB ═══════════════ */
+function openCreateJob() {
+  editingJobId = null;
+  document.getElementById('jobModalTitle').textContent = 'New Job';
+  ['jWO','jName','jAddr','jCAE','jNotes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('jType').value = 'Project';
+  document.getElementById('jStatus').value = 'active';
+  document.getElementById('jDate').value = new Date().toISOString().slice(0,10);
+  document.getElementById('jobModal').classList.add('show');
+  setTimeout(() => document.getElementById('jWO').focus(), 50);
+}
+async function editJob() {
+  const job = await dbGet('jobs', activeJobId);
+  if (!job) return;
+  editingJobId = job.id;
+  document.getElementById('jobModalTitle').textContent = 'Edit Job';
+  document.getElementById('jWO').value     = job.wo_number   || '';
+  document.getElementById('jName').value   = job.job_name    || '';
+  document.getElementById('jAddr').value   = job.address     || '';
+  document.getElementById('jType').value   = job.job_type    || 'Project';
+  document.getElementById('jStatus').value = job.status      || 'active';
+  document.getElementById('jDate').value   = job.scheduled_date || '';
+  document.getElementById('jCAE').value    = job.cae_number  || '';
+  document.getElementById('jNotes').value  = job.notes       || '';
+  document.getElementById('jobModal').classList.add('show');
+}
+function closeJobModal() { document.getElementById('jobModal').classList.remove('show'); }
+
+async function saveJob() {
+  const wo    = document.getElementById('jWO').value.trim();
+  const name  = document.getElementById('jName').value.trim();
+  const addr  = document.getElementById('jAddr').value.trim();
+  if (!wo || !name || !addr) {
+    toast('Work Order #, Job Name, and Address are required.', 'warn');
+    return;
+  }
+  const now = Date.now();
+  let job;
+  if (editingJobId) {
+    job = await dbGet('jobs', editingJobId);
+    job.wo_number = wo;
+    job.job_name = name;
+    job.address = addr;
+    job.job_type = document.getElementById('jType').value;
+    job.status = document.getElementById('jStatus').value;
+    job.scheduled_date = document.getElementById('jDate').value;
+    job.cae_number = document.getElementById('jCAE').value.trim();
+    job.notes = document.getElementById('jNotes').value.trim();
+    job.updated_at = now;
+    job.updated_by = currentUser.id;
+    job.updated_by_name = currentUser.name;
+    await dbPut('jobs', job);
+    await logActivity(job.id, 'job_updated', `${currentUser.name} edited job details`);
+  } else {
+    job = {
+      id: uid('job'),
+      wo_number: wo, job_name: name, address: addr,
+      job_type: document.getElementById('jType').value,
+      status: document.getElementById('jStatus').value,
+      scheduled_date: document.getElementById('jDate').value,
+      cae_number: document.getElementById('jCAE').value.trim(),
+      notes: document.getElementById('jNotes').value.trim(),
+      created_at: now, created_by: currentUser.id, created_by_name: currentUser.name,
+      updated_at: now, updated_by: currentUser.id, updated_by_name: currentUser.name
+    };
+    // ★ SUPABASE: await supabase.from('jobs').insert(job)
+    await dbPut('jobs', job);
+    await logActivity(job.id, 'job_created', `${currentUser.name} created the job folder`);
+  }
+  closeJobModal();
+  if (editingJobId && document.getElementById('screenFolder').classList.contains('active')) {
+    toast('Job updated', 'success');
+    openJob(editingJobId);
+  } else {
+    toast(editingJobId ? 'Job updated' : 'Job created', 'success');
+    renderJobLibrary();
+  }
+}
+
+/* ═══════════════ JOB FOLDER ═══════════════ */
+async function openJob(jobId) {
+  activeJobId = jobId;
+  const job = await dbGet('jobs', jobId);
+  if (!job) return;
+
+  document.getElementById('crumbJob').textContent = job.job_name || job.wo_number;
+  document.getElementById('folderWO').textContent = `WO ${job.wo_number}${job.cae_number ? ` · CAE ${job.cae_number}` : ''}`;
+  document.getElementById('folderName').textContent = job.job_name;
+  document.getElementById('folderAddr').textContent = `📍 ${job.address}`;
+  document.getElementById('folderStatus').innerHTML = statusPill(job.status);
+  document.getElementById('folderType').textContent = job.job_type || '—';
+  document.getElementById('folderCreated').textContent = fmtDateTime(job.created_at);
+  document.getElementById('folderUpdated').textContent = relTime(job.updated_at);
+  document.getElementById('folderCreatedBy').textContent = job.created_by_name || '—';
+
+  const docs = await dbGetByIndex('documents', 'job_id', jobId);
+  document.getElementById('folderDocCount').textContent = docs.length;
+  document.getElementById('docTotalCount').textContent = docs.length ? `(${docs.length} total)` : '';
+
+  const grid = document.getElementById('docTypeGrid');
+  grid.innerHTML = Object.entries(DOC_TYPES).map(([key, def]) => {
+    const myDocs = docs.filter(d => d.doc_type === key)
+                       .sort((a, b) => b.updated_at - a.updated_at);
+    const itemsHtml = myDocs.length ? `
+      <div class="doc-list">
+        ${myDocs.map(d => `
+          <div class="doc-item">
+            <div style="flex:1;cursor:pointer;display:flex;align-items:center;gap:10px;" onclick="openDoc('${d.id}')">
+              <div class="doc-name">${esc(d.title || def.label)}</div>
+            </div>
+            <div class="doc-meta" onclick="openDoc('${d.id}')" style="cursor:pointer;">
+              <span class="by">${esc(d.updated_by_name || d.created_by_name)}</span><br>
+              ${relTime(d.updated_at)}
+            </div>
+            <button class="btn btn-ghost btn-sm" style="padding:4px 8px;color:var(--danger);" title="Delete" onclick="event.stopPropagation();deleteDocFromFolder('${d.id}')">🗑</button>
+          </div>`).join('')}
+      </div>` : `<div class="doc-empty">No ${def.label.toLowerCase()} yet</div>`;
+
+    return `
+      <div class="doc-type-card ${def.cls}">
+        <div class="head">
+          <div class="badge">${def.icon}</div>
+          <div class="title-block">
+            <div class="name">${def.label}</div>
+            <div class="desc">${def.desc}</div>
+          </div>
+        </div>
+        ${itemsHtml}
+        <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;" onclick="createDoc('${key}')">
+          ＋ New ${def.label}
+        </button>
+      </div>`;
+  }).join('');
+
+  // Activity tab
+  const activity = await dbGetByIndex('activity', 'job_id', jobId);
+  activity.sort((a, b) => b.at - a.at);
+  document.getElementById('activityList').innerHTML = activity.length ? activity.map(a => `
+    <div class="activity-item">
+      <div class="activity-icon">${activityIcon(a.action)}</div>
+      <div class="activity-content">
+        ${esc(a.summary)}
+        <div class="when">${fmtDateTime(a.at)}</div>
+      </div>
+    </div>`).join('') : '<div class="doc-empty" style="margin:8px;">No activity yet</div>';
+
+  // Details tab
+  document.getElementById('detailsContent').innerHTML = `
+    <div class="folder-meta-grid" style="border-top:none;padding-top:0;">
+      <div class="meta-cell"><div class="label">Work Order #</div><div class="value">${esc(job.wo_number)}</div></div>
+      <div class="meta-cell"><div class="label">CAE / Reference</div><div class="value">${esc(job.cae_number || '—')}</div></div>
+      <div class="meta-cell"><div class="label">Job Name</div><div class="value">${esc(job.job_name)}</div></div>
+      <div class="meta-cell"><div class="label">Address</div><div class="value">${esc(job.address)}</div></div>
+      <div class="meta-cell"><div class="label">Job Type</div><div class="value">${esc(job.job_type)}</div></div>
+      <div class="meta-cell"><div class="label">Status</div><div class="value">${statusPill(job.status)}</div></div>
+      <div class="meta-cell"><div class="label">Scheduled</div><div class="value">${job.scheduled_date ? fmtDate(new Date(job.scheduled_date).getTime()) : '—'}</div></div>
+      <div class="meta-cell"><div class="label">Created</div><div class="value">${fmtDateTime(job.created_at)}<br><span style="font-size:0.74rem;color:var(--text-light);">by ${esc(job.created_by_name)}</span></div></div>
+      <div class="meta-cell" style="grid-column:1/-1;"><div class="label">Notes</div><div class="value" style="font-weight:400;line-height:1.5;">${esc(job.notes) || '—'}</div></div>
+    </div>`;
+
+  showScreen('screenFolder');
+}
+
+function activityIcon(action) {
+  return ({ job_created:'📁', job_updated:'✎', doc_created:'＋', doc_updated:'✎', doc_deleted:'🗑' })[action] || '•';
+}
+
+function statusPill(s) {
+  const labels = { active:'Active', completed:'Completed', archived:'Archived' };
+  const key = labels[s] ? s : 'active';
+  return `<span class="pill pill-${key}">${labels[key]}</span>`;
+}
+
+/* Tabs in folder view */
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('tab' + t.dataset.tab.charAt(0).toUpperCase() + t.dataset.tab.slice(1)).classList.add('active');
+  });
+});
+
+/* ═══════════════ DOCUMENT CREATE / OPEN ═══════════════ */
+async function createDoc(type) {
+  const job = await dbGet('jobs', activeJobId);
+  const def = DOC_TYPES[type];
+  const doc = {
+    id: uid('doc'),
+    job_id: activeJobId,
+    doc_type: type,
+    title: `${def.label} — ${job.wo_number}`,
+    payload: {},
+    pdf_url: null,
+    created_at: Date.now(), created_by: currentUser.id, created_by_name: currentUser.name,
+    updated_at: Date.now(), updated_by: currentUser.id, updated_by_name: currentUser.name
+  };
+  // ★ SUPABASE: await supabase.from('documents').insert(doc)
+  await dbPut('documents', doc);
+  await logActivity(activeJobId, 'doc_created', `${currentUser.name} started a new ${def.label}`, doc.id);
+
+  // touch parent job's updated_at
+  job.updated_at = Date.now();
+  job.updated_by_name = currentUser.name;
+  await dbPut('jobs', job);
+
+  openDoc(doc.id);
+}
+
+async function openDoc(docId) {
+  const doc = await dbGet('documents', docId);
+  if (!doc) return;
+  const job = await dbGet('jobs', doc.job_id);
+  activeDocId = doc.id;
+  activeDocType = doc.doc_type;
+  const def = DOC_TYPES[doc.doc_type];
+
+  document.getElementById('crumbFolderLink').textContent = job.job_name;
+  document.getElementById('crumbDoc').textContent = def.label;
+  document.getElementById('docTitle').textContent = `${def.icon} ${def.label}`;
+  document.getElementById('docSub').textContent = `${job.wo_number} · ${job.job_name} · created ${fmtDateTime(doc.created_at)} by ${doc.created_by_name}`;
+
+  const host = document.getElementById('docHost');
+
+  // FieldForms is a special case — it has its own auth + job model. Show
+  // a banner reminding the user which WO# to use inside FieldForms.
+  const banner = doc.doc_type === 'asbuilt'
+    ? `<div style="padding:14px 14px 0;">
+         <div class="ff-context-banner">
+           <span>ℹ️</span>
+           <div><strong>FieldForms</strong> manages its own jobs (with login) — when prompted to create or pick a job inside, use WO <code>${esc(job.wo_number)}</code> · <code>${esc(job.job_name)}</code> so it lines up with this folder.</div>
+         </div>
+       </div>`
+    : '';
+
+  host.innerHTML = `
+    ${banner}
+    <div class="doc-host-loading" id="docLoading">
+      <div class="spinner"></div>
+      Loading ${esc(def.label)} app…
+    </div>
+    <iframe id="docFrame" src="${def.app}"
+            allow="clipboard-write; camera; geolocation"
+            title="${esc(def.label)}"></iframe>`;
+
+  const frame = document.getElementById('docFrame');
+  const loading = document.getElementById('docLoading');
+
+  // The injected bridge in each app posts EMBED_READY when it's listening.
+  const onReady = (e) => {
+    if (!e.data || e.data.type !== 'EMBED_READY') return;
+    if (e.source !== frame.contentWindow) return;
+    window.removeEventListener('message', onReady);
+    // Send the job context so the app pre-fills WO/Name/Address/Type
+    frame.contentWindow.postMessage({
+      type: 'JOB_CONTEXT',
+      wo:      job.wo_number,
+      name:    job.job_name,
+      address: job.address,
+      jobType: job.job_type,
+      cae:     job.cae_number
+    }, '*');
+  };
+  window.addEventListener('message', onReady);
+
+  frame.addEventListener('load', () => {
+    // Hide spinner, fade in the iframe via the .ready class (smoother than display swap)
+    loading.style.display = 'none';
+    frame.classList.add('ready');
+    // Fallback: if EMBED_READY didn't fire (e.g. snippet not present), still
+    // try posting after load. The app will ignore unknown messages.
+    setTimeout(() => {
+      try {
+        frame.contentWindow.postMessage({
+          type: 'JOB_CONTEXT',
+          wo:      job.wo_number,
+          name:    job.job_name,
+          address: job.address,
+          jobType: job.job_type,
+          cae:     job.cae_number
+        }, '*');
+      } catch (e) { /* cross-origin — won't happen for same-origin files */ }
+    }, 200);
+  });
+
+  // When the user navigates back to the folder, bump updated_at on the
+  // document and the parent job so the activity log reflects real work.
+  // We treat any visit to the doc as "touched" — refined audit hooks
+  // (form-submit, PDF-generate) come in the next iteration.
+  pendingDocTouch = true;
+
+  showScreen('screenDoc');
+}
+
+let pendingDocTouch = false;
+
+async function touchDocOnExit() {
+  if (!pendingDocTouch || !activeDocId) return;
+  pendingDocTouch = false;
+  const doc = await dbGet('documents', activeDocId);
+  if (!doc) return;
+  doc.updated_at = Date.now();
+  doc.updated_by = currentUser.id;
+  doc.updated_by_name = currentUser.name;
+  await dbPut('documents', doc);
+  await logActivity(doc.job_id, 'doc_updated', `${currentUser.name} worked on the ${DOC_TYPES[doc.doc_type].label}`, doc.id);
+  const job = await dbGet('jobs', doc.job_id);
+  if (job) {
+    job.updated_at = Date.now();
+    job.updated_by_name = currentUser.name;
+    await dbPut('jobs', job);
+  }
+}
+
+async function deleteDocFromFolder(docId) {
+  const doc = await dbGet('documents', docId);
+  if (!doc) return;
+  showConfirm('Delete document?', `This ${DOC_TYPES[doc.doc_type].label} will be removed from the job folder. The job folder itself stays intact.`, async () => {
+    await dbDelete('documents', docId);
+    await logActivity(doc.job_id, 'doc_deleted', `${currentUser.name} deleted a ${DOC_TYPES[doc.doc_type].label}`, doc.id);
+    toast(`${DOC_TYPES[doc.doc_type].label} deleted`, 'danger');
+    openJob(activeJobId);
+  });
+}
+
+/* ═══════════════ NAV ═══════════════ */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+async function goLibrary() { await touchDocOnExit(); renderJobLibrary(); showScreen('screenLibrary'); }
+async function goFolder()  { await touchDocOnExit(); openJob(activeJobId); }
+
+/* ═══════════════ EXPORT (placeholder) ═══════════════ */
+async function exportJob() {
+  const job = await dbGet('jobs', activeJobId);
+  const docs = await dbGetByIndex('documents', 'job_id', activeJobId);
+  const blob = new Blob([JSON.stringify({ job, documents: docs }, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${job.wo_number}_${job.job_name}.json`.replace(/[^a-z0-9._-]/gi,'_');
+  a.click();
+  URL.revokeObjectURL(url);
+  // In production, this would generate a zipped PDF pack of all docs + the metadata,
+  // and/or push to SharePoint. The shape of the data is already correct for that.
+}
+
+/* ═══════════════ CONFIRM MODAL ═══════════════ */
+let confirmCallback = null;
+function showConfirm(title, msg, cb) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent = msg;
+  confirmCallback = cb;
+  document.getElementById('confirmModal').classList.add('show');
+}
+function closeConfirm() {
+  document.getElementById('confirmModal').classList.remove('show');
+  confirmCallback = null;
+}
+document.getElementById('confirmOk').addEventListener('click', () => {
+  if (confirmCallback) confirmCallback();
+  closeConfirm();
+});
+
+/* ═══════════════ USER SWITCHING (prototype only) ═══════════════ */
+document.getElementById('userPicker').addEventListener('change', e => {
+  currentUser = USERS[e.target.value];
+  document.getElementById('userAvatar').textContent = currentUser.initials;
+  document.getElementById('userName').textContent = currentUser.name;
+});
+
+/* ═══════════════ DEMO SEED ═══════════════ */
+async function seedIfEmpty() {
+  const existing = await dbGetAll('jobs');
+  if (existing.length) return;
+
+  const now = Date.now();
+  const day = 86400000;
+  const samples = [
+    {
+      wo_number: 'WO458921', job_name: 'Smith Street pole replacement',
+      address: '12 Smith St, Hawera', job_type: 'Project', status: 'active',
+      scheduled_date: new Date(now + 3*day).toISOString().slice(0,10),
+      cae_number: 'CAE-2026-0412',
+      notes: 'OH structure needs full replacement after vehicle impact. LV services to 4 properties.',
+      created_at: now - 5*day, created_by_name: 'Ben Boyne', created_by: 'u_ben',
+      updated_at: now - 2*60*60*1000, updated_by_name: 'Mike Tane',
+      docTypes: ['scoping','jobcard','storeman']
+    },
+    {
+      wo_number: 'WO458877', job_name: 'Eltham Rd transformer fault',
+      address: '156 Eltham Rd, Stratford', job_type: 'Fault', status: 'completed',
+      scheduled_date: new Date(now - 1*day).toISOString().slice(0,10),
+      cae_number: '',
+      notes: 'After-hours fault response. RMU isolation, transformer swap.',
+      created_at: now - 8*day, created_by_name: 'Sara Patel', created_by: 'u_sara',
+      updated_at: now - 1*day, updated_by_name: 'Sara Patel',
+      docTypes: ['jobcard','asbuilt']
+    },
+    {
+      wo_number: 'WO459012', job_name: 'Kowhai Ave LV upgrade',
+      address: '23-31 Kowhai Ave, New Plymouth', job_type: 'Project', status: 'active',
+      scheduled_date: new Date(now + 10*day).toISOString().slice(0,10),
+      cae_number: 'CAE-2026-0418',
+      notes: 'LV mains upgrade — 4 services to upgrade from 60A to 100A.',
+      created_at: now - 2*day, created_by_name: 'Ben Boyne', created_by: 'u_ben',
+      updated_at: now - 30*60*1000, updated_by_name: 'Ben Boyne',
+      docTypes: ['scoping']
+    },
+    {
+      wo_number: 'WO458554', job_name: 'Tasman St HV defect',
+      address: '88 Tasman St, Inglewood', job_type: 'Defect', status: 'archived',
+      scheduled_date: new Date(now - 30*day).toISOString().slice(0,10),
+      cae_number: 'CAE-2025-1198',
+      notes: 'Cracked insulator on HV crossarm. Replaced and tested.',
+      created_at: now - 35*day, created_by_name: 'Dave Wilson', created_by: 'u_dave',
+      updated_at: now - 28*day, updated_by_name: 'Dave Wilson',
+      docTypes: ['jobcard','asbuilt']
+    }
+  ];
+
+  for (const s of samples) {
+    const job = {
+      id: uid('job'),
+      wo_number: s.wo_number, job_name: s.job_name, address: s.address,
+      job_type: s.job_type, status: s.status, scheduled_date: s.scheduled_date,
+      cae_number: s.cae_number, notes: s.notes,
+      created_at: s.created_at, created_by: s.created_by, created_by_name: s.created_by_name,
+      updated_at: s.updated_at, updated_by: s.created_by, updated_by_name: s.updated_by_name
+    };
+    await dbPut('jobs', job);
+    await dbPut('activity', {
+      id: uid('act'), job_id: job.id, doc_id: null, action: 'job_created',
+      summary: `${s.created_by_name} created the job folder`,
+      actor_id: s.created_by, actor_name: s.created_by_name, at: s.created_at
+    });
+    for (const dt of s.docTypes) {
+      const doc = {
+        id: uid('doc'), job_id: job.id, doc_type: dt,
+        title: `${DOC_TYPES[dt].label} — ${s.wo_number}`,
+        payload: {},
+        created_at: s.created_at + 3600000,
+        created_by: s.created_by, created_by_name: s.created_by_name,
+        updated_at: s.updated_at,
+        updated_by: s.created_by, updated_by_name: s.updated_by_name
+      };
+      await dbPut('documents', doc);
+      await dbPut('activity', {
+        id: uid('act'), job_id: job.id, doc_id: doc.id, action: 'doc_created',
+        summary: `${s.created_by_name} added a ${DOC_TYPES[dt].label}`,
+        actor_id: s.created_by, actor_name: s.created_by_name, at: doc.created_at
+      });
+    }
+  }
+}
+
+/* ═══════════════ THEME TOGGLE ═══════════════ */
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t === 'dark' ? 'dark' : '';
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = t === 'dark' ? '☀️' : '🌙';
+}
+function toggleTheme() {
+  const isDark = document.documentElement.dataset.theme === 'dark';
+  const next = isDark ? 'light' : 'dark';
+  applyTheme(next);
+  try { localStorage.setItem('fieldhub.theme', next); } catch(e) {}
+}
+(function initTheme() {
+  try {
+    if (localStorage.getItem('fieldhub.theme') === 'dark') applyTheme('dark');
+  } catch(e) {}
+})();
+
+/* ═══════════════ INIT ═══════════════ */
+(async () => {
+  await openDB();
+  await seedIfEmpty();
+  await renderJobLibrary();
+})();
+</script>
+</body>
+</html>
