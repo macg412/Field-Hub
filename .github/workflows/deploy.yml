@@ -1,0 +1,14 @@
+name: Deploy to Netlify
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Netlify
+        run: npx netlify-cli@latest deploy --dir hub --prod --auth ${{ secrets.NETLIFY_AUTH_TOKEN }} --site a5535789-007d-4b4a-b238-0a45d5b1a6c4
