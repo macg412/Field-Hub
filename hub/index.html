@@ -946,34 +946,50 @@ async function initAuth() {
 }
 
 async function handleSession(session) {
-  let { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
-  if (!profile) {
-    await new Promise(r => setTimeout(r, 1500));
-    const { data: p2 } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
-    profile = p2;
+  try {
+    let { data: profile, error: profErr } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+    if (profErr || !profile) {
+      await new Promise(r => setTimeout(r, 1500));
+      const { data: p2, error: e2 } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+      profile = p2;
+      if (e2) console.error('profile fetch error:', e2);
+    }
+    if (!profile) { console.error('no profile found for', session.user.id); showAuthPanel('login'); return; }
+    if (!profile.approved) { showAuthPanel('pending'); return; }
+
+    const initials = (profile.name || session.user.email)
+      .split(/[\s@]+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+
+    currentUser = { id: session.user.id, name: profile.name || session.user.email,
+                    email: session.user.email, isAdmin: profile.is_admin, initials };
+
+    hideAuthOverlay();
+    document.getElementById('userAvatar').textContent = currentUser.initials;
+    document.getElementById('userName').textContent = currentUser.name;
+    document.getElementById('adminBtn').style.display = currentUser.isAdmin ? 'inline-flex' : 'none';
+    await renderJobLibrary();
+    showScreen('screenLibrary');
+  } catch(err) {
+    console.error('handleSession error:', err);
+    toast('Sign-in failed: ' + err.message, 'danger');
   }
-  if (!profile) { showAuthPanel('login'); return; }
-  if (!profile.approved) { showAuthPanel('pending'); return; }
-
-  const initials = (profile.name || session.user.email)
-    .split(/[\s@]+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2);
-
-  currentUser = { id: session.user.id, name: profile.name || session.user.email,
-                  email: session.user.email, isAdmin: profile.is_admin, initials };
-
-  hideAuthOverlay();
-  document.getElementById('userAvatar').textContent = currentUser.initials;
-  document.getElementById('userName').textContent = currentUser.name;
-  document.getElementById('adminBtn').style.display = currentUser.isAdmin ? 'inline-flex' : 'none';
-  await renderJobLibrary();
 }
 
 async function doLogin() {
-  const email = document.getElementById('loginEmail').value.trim();
+  const email    = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
   if (!email || !password) { toast('Email and password required', 'warn'); return; }
-  const { error } = await sb.auth.signInWithPassword({ email, password });
-  if (error) toast(error.message, 'danger');
+  const btn = document.querySelector('#panelLogin .btn-primary');
+  const resetBtn = () => { if (btn) { btn.disabled = false; btn.textContent = 'Sign in'; } };
+  if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
+  try {
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) { toast(error.message, 'danger'); resetBtn(); }
+    // on success, onAuthStateChange fires → handleSession() → app loads
+  } catch(err) {
+    toast(err.message || 'Sign-in error', 'danger');
+    resetBtn();
+  }
 }
 
 async function doSignup() {
