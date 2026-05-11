@@ -982,11 +982,18 @@ async function doLogin() {
   const btn = document.querySelector('#panelLogin .btn-primary');
   const resetBtn = () => { if (btn) { btn.disabled = false; btn.textContent = 'Sign in'; } };
   if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
+  console.log('[auth] calling signInWithPassword for', email);
   try {
-    const { error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) { toast(error.message, 'danger'); resetBtn(); }
-    // on success, onAuthStateChange fires → handleSession() → app loads
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Request timed out — check your connection')), 12000));
+    const { data, error } = await Promise.race([
+      sb.auth.signInWithPassword({ email, password }),
+      timeout
+    ]);
+    console.log('[auth] signInWithPassword result:', { data, error });
+    if (error) { toast(error.message, 'danger'); resetBtn(); return; }
+    // success — onAuthStateChange will fire → handleSession() loads the app
   } catch(err) {
+    console.error('[auth] signInWithPassword threw:', err);
     toast(err.message || 'Sign-in error', 'danger');
     resetBtn();
   }
