@@ -945,7 +945,6 @@ async function renderJobLibrary() {
     return;
   }
   empty.style.display = 'none';
-  const sort = document.getElementById('sortPicker').value;
   if (meta) meta.innerHTML = `<span>${filtered.length} job${filtered.length===1?'':'s'} · ${jobs.length} total</span><span>sorted by ${{updated:'recent activity',created:'created date',wo:'WO #',name:'name'}[sort]}</span>`;
 
   list.innerHTML = filtered.map(j => {
