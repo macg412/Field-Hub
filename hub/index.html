@@ -1282,7 +1282,7 @@ async function createDoc(type) {
     created_by_name: currentUser.name,
     updated_by_name: currentUser.name,
   }).select().single();
-  if (error) { toast('Could not create document', 'danger'); return; }
+  if (error) { console.error('createDoc error:', error); toast('Could not create document', 'danger'); return; }
   await logActivity(activeJobId, 'doc_created', `${currentUser.name} started a new ${def.label}`, doc.id);
   await sb.from('jobs').update({ updated_by_name: currentUser.name }).eq('id', activeJobId);
   openDoc(doc.id);
