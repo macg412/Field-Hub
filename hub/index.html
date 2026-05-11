@@ -934,13 +934,16 @@ function showAuthPanel(name) {
 }
 function hideAuthOverlay() { document.getElementById('authOverlay').style.display = 'none'; }
 
-async function initAuth() {
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) await handleSession(session);
-  else showAuthPanel('login');
-
+function initAuth() {
+  // Use onAuthStateChange as sole session source — avoids the getSession() lock
+  // that can cause signInWithPassword to hang if the initial fetch stalls.
   sb.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'SIGNED_IN' && session) await handleSession(session);
+    console.log('[auth] state change:', event, session?.user?.email);
+    if (event === 'INITIAL_SESSION') {
+      if (session) await handleSession(session);
+      else showAuthPanel('login');
+    }
+    if (event === 'SIGNED_IN')  await handleSession(session);
     if (event === 'SIGNED_OUT') { currentUser = null; showAuthPanel('login'); }
   });
 }
