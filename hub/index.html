@@ -387,6 +387,26 @@
     .modal { max-width: 100% !important; max-height: 92vh; border-radius: var(--r-lg) var(--r-lg) 0 0; }
     .doc-host iframe { height: calc(100vh - 180px); min-height: 420px; }
   }
+
+  /* ── AUTH OVERLAY ── */
+  .auth-overlay { position: fixed; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; padding: 24px;
+    background: radial-gradient(1200px 600px at 80% -10%, oklch(96% 0.03 258) 0%, transparent 60%),
+                radial-gradient(900px 500px at -10% 110%, oklch(97% 0.02 200) 0%, transparent 60%), var(--bg); }
+  .auth-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-xl); padding: 36px 32px; width: 100%; max-width: 400px; box-shadow: var(--sh-3); }
+  .auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+  .auth-brand .brandmark { width: 36px; height: 36px; }
+  .auth-title { font-size: 1.35rem; font-weight: 700; color: var(--ink); letter-spacing: -0.025em; margin-bottom: 20px; }
+  .auth-body { font-size: 0.88rem; color: var(--ink-3); line-height: 1.6; margin-bottom: 20px; }
+  .auth-switch { text-align: center; font-size: 0.82rem; color: var(--ink-4); margin-top: 14px; }
+  .auth-switch a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .auth-switch a:hover { text-decoration: underline; }
+
+  /* ── ADMIN PANEL ── */
+  .admin-user-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .admin-user-row:last-child { border-bottom: none; }
+  .admin-user-info { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+  .admin-user-badges { display: flex; gap: 5px; flex-shrink: 0; }
+  .status-tag.pending { background: var(--warn-soft); color: var(--warn); }
 </style>
 </head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -439,33 +459,77 @@
     </nav>
     <div class="header-spacer"></div>
     <div class="header-right">
-      <div class="user-pill">
-        <div class="user-avatar" id="userAvatar">BB</div>
+      <button id="adminBtn" class="btn btn-ghost btn-sm" style="display:none;" onclick="openAdminPanel()">
+        <svg><use href="#icon-grid"/></svg> Users
+      </button>
+      <div class="user-pill" style="cursor:default;">
+        <div class="user-avatar" id="userAvatar">?</div>
         <div class="user-info">
-          <div class="name" id="userName">Ben Boyne</div>
-          <div class="role">Coordinator</div>
+          <div class="name" id="userName">—</div>
         </div>
-        <select id="userPicker" title="Switch user (prototype only)">
-          <option value="ben">Ben Boyne</option>
-          <option value="mike">Mike Tane</option>
-          <option value="sara">Sara Patel</option>
-          <option value="dave">Dave Wilson</option>
-        </select>
       </div>
+      <button class="btn btn-ghost btn-sm" onclick="doSignOut()" title="Sign out">
+        <svg><use href="#icon-arrow-left"/></svg>
+      </button>
     </div>
   </div>
 </header>
 
 <!-- ════════════════════════════════════════════════════════════════════
+     AUTH OVERLAY
+     ════════════════════════════════════════════════════════════════════ -->
+<div id="authOverlay" class="auth-overlay" style="display:none;">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="brandmark"><svg><use href="#icon-bolt"/></svg></div>
+      <div class="brand-text">
+        <div class="word">BAM<em>Valley</em></div>
+        <div class="sub">Field Hub</div>
+      </div>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="panelLogin">
+      <div class="auth-title">Sign in</div>
+      <div class="field"><label>Email</label><input type="email" id="loginEmail" autocomplete="email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="field"><label>Password</label><input type="password" id="loginPassword" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="btn btn-primary" style="width:100%;margin-top:4px;" onclick="doLogin()">Sign in</button>
+      <div class="auth-switch">No account? <a href="#" onclick="showAuthPanel('signup');return false">Create one</a></div>
+    </div>
+
+    <!-- SIGNUP -->
+    <div id="panelSignup" hidden>
+      <div class="auth-title">Create account</div>
+      <div class="field"><label>Full name</label><input type="text" id="signupName" autocomplete="name" placeholder="e.g. Ben MacGeorge"></div>
+      <div class="field"><label>Email</label><input type="email" id="signupEmail" autocomplete="email" placeholder="you@example.com"></div>
+      <div class="field"><label>Password</label><input type="password" id="signupPassword" autocomplete="new-password" placeholder="Minimum 6 characters" onkeydown="if(event.key==='Enter')doSignup()"></div>
+      <button class="btn btn-primary" style="width:100%;margin-top:4px;" onclick="doSignup()">Create account</button>
+      <div class="auth-switch">Already have an account? <a href="#" onclick="showAuthPanel('login');return false">Sign in</a></div>
+    </div>
+
+    <!-- CONFIRM EMAIL -->
+    <div id="panelConfirm" hidden>
+      <div style="text-align:center;margin-bottom:16px;"><svg style="width:40px;height:40px;color:var(--ok)"><use href="#icon-check"/></svg></div>
+      <div class="auth-title" style="text-align:center;">Check your email</div>
+      <p class="auth-body" style="text-align:center;">We sent a confirmation link to <strong id="confirmEmailAddr">—</strong>. Click the link, then return here to sign in.</p>
+      <button class="btn btn-ghost" style="width:100%;" onclick="showAuthPanel('login')">Back to sign in</button>
+    </div>
+
+    <!-- AWAITING APPROVAL -->
+    <div id="panelPending" hidden>
+      <div style="text-align:center;margin-bottom:16px;"><svg style="width:40px;height:40px;color:var(--warn)"><use href="#icon-warning"/></svg></div>
+      <div class="auth-title" style="text-align:center;">Awaiting approval</div>
+      <p class="auth-body" style="text-align:center;">Your email is confirmed. An administrator needs to approve your account before you can access the hub.</p>
+      <button class="btn btn-primary" style="width:100%;" onclick="checkApproval()">Check again</button>
+      <button class="btn btn-ghost" style="width:100%;margin-top:8px;" onclick="doSignOut()">Sign out</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════
      SCREEN 1: JOB LIBRARY (the landing screen — searchable folders)
      ════════════════════════════════════════════════════════════════════ -->
 <section class="screen active" id="screenLibrary">
-  <div class="proto-banner" id="protoBanner">
-    <svg class="b-icon"><use href="#icon-info"/></svg>
-    <div><strong>BAMValley Field Hub.</strong> Job folder data is stored in Supabase — changes sync across all devices instantly. Opening any document launches the matching app with WO #, name and address pre-filled.</div>
-    <button class="banner-close" onclick="dismissProtoBanner()" title="Dismiss"><svg><use href="#icon-x"/></svg></button>
-  </div>
-
   <div class="dash-strip" id="dashStrip"></div>
 
   <div class="page-head">
@@ -742,6 +806,22 @@
   </div>
 </div>
 
+<!-- ════════════════════════════════════════════════════════════════════
+     ADMIN PANEL MODAL
+     ════════════════════════════════════════════════════════════════════ -->
+<div class="modal-bg" id="adminModal">
+  <div class="modal" style="max-width:580px;">
+    <div class="modal-head">
+      <h3>User Management</h3>
+      <button class="modal-close" onclick="closeAdminPanel()"><svg><use href="#icon-x"/></svg></button>
+    </div>
+    <div class="modal-body" id="adminPanelBody" style="max-height:60vh;overflow-y:auto;"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeAdminPanel()">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
 'use strict';
 
@@ -841,14 +921,127 @@ applyTweaks();
    Search points are marked with ★ SUPABASE in comments.
 ═══════════════════════════════════════════════════════════════════════ */
 
-/* ── USERS (mock; in prod comes from supabase.auth.getUser()) ── */
-const USERS = {
-  ben:  { id:'u_ben',  name:'Ben Boyne',   initials:'BB', role:'Coordinator' },
-  mike: { id:'u_mike', name:'Mike Tane',   initials:'MT', role:'Field Tech' },
-  sara: { id:'u_sara', name:'Sara Patel',  initials:'SP', role:'Engineer' },
-  dave: { id:'u_dave', name:'Dave Wilson', initials:'DW', role:'Field Tech' }
-};
-let currentUser = USERS.ben;
+/* ── AUTH STATE ── */
+let currentUser = null; // set by handleSession() after sign-in
+
+/* ═══════════════ AUTH ═══════════════ */
+function showAuthPanel(name) {
+  ['login','signup','confirm','pending'].forEach(p => {
+    const el = document.getElementById('panel' + p.charAt(0).toUpperCase() + p.slice(1));
+    if (el) el.hidden = (p !== name);
+  });
+  document.getElementById('authOverlay').style.display = 'flex';
+}
+function hideAuthOverlay() { document.getElementById('authOverlay').style.display = 'none'; }
+
+async function initAuth() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) await handleSession(session);
+  else showAuthPanel('login');
+
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) await handleSession(session);
+    if (event === 'SIGNED_OUT') { currentUser = null; showAuthPanel('login'); }
+  });
+}
+
+async function handleSession(session) {
+  let { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+  if (!profile) {
+    await new Promise(r => setTimeout(r, 1500));
+    const { data: p2 } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+    profile = p2;
+  }
+  if (!profile) { showAuthPanel('login'); return; }
+  if (!profile.approved) { showAuthPanel('pending'); return; }
+
+  const initials = (profile.name || session.user.email)
+    .split(/[\s@]+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+
+  currentUser = { id: session.user.id, name: profile.name || session.user.email,
+                  email: session.user.email, isAdmin: profile.is_admin, initials };
+
+  hideAuthOverlay();
+  document.getElementById('userAvatar').textContent = currentUser.initials;
+  document.getElementById('userName').textContent = currentUser.name;
+  document.getElementById('adminBtn').style.display = currentUser.isAdmin ? 'inline-flex' : 'none';
+  await renderJobLibrary();
+}
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  if (!email || !password) { toast('Email and password required', 'warn'); return; }
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) toast(error.message, 'danger');
+}
+
+async function doSignup() {
+  const name    = document.getElementById('signupName').value.trim();
+  const email   = document.getElementById('signupEmail').value.trim();
+  const password= document.getElementById('signupPassword').value;
+  if (!name || !email || !password) { toast('All fields required', 'warn'); return; }
+  const { error } = await sb.auth.signUp({ email, password, options: { data: { name } } });
+  if (error) { toast(error.message, 'danger'); return; }
+  document.getElementById('confirmEmailAddr').textContent = email;
+  showAuthPanel('confirm');
+}
+
+async function doSignOut() { await sb.auth.signOut(); }
+
+async function checkApproval() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { showAuthPanel('login'); return; }
+  const { data: profile } = await sb.from('profiles').select('approved').eq('id', session.user.id).single();
+  if (profile?.approved) await handleSession(session);
+  else toast('Still awaiting admin approval', 'warn');
+}
+
+/* ═══════════════ ADMIN PANEL ═══════════════ */
+function openAdminPanel()  { document.getElementById('adminModal').classList.add('show'); loadAdminUsers(); }
+function closeAdminPanel() { document.getElementById('adminModal').classList.remove('show'); }
+
+async function loadAdminUsers() {
+  const { data: profiles, error } = await sb.from('profiles').select('*').order('created_at');
+  if (error) { toast('Could not load users', 'danger'); return; }
+  const initials = p => (p.name || p.email).split(/[\s@]+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  document.getElementById('adminPanelBody').innerHTML = profiles.map(p => `
+    <div class="admin-user-row">
+      <div class="admin-user-info">
+        <div class="user-avatar" style="width:32px;height:32px;font-size:0.75rem;">${initials(p)}</div>
+        <div style="min-width:0;">
+          <div style="font-weight:600;font-size:0.88rem;color:var(--ink);">${esc(p.name || '—')}</div>
+          <div style="color:var(--ink-4);font-size:0.76rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.email)}</div>
+        </div>
+        <div class="admin-user-badges">
+          ${p.is_admin ? '<span class="status-tag active">Admin</span>' : '<span class="status-tag archived">User</span>'}
+          ${p.approved ? '<span class="status-tag completed">Approved</span>' : '<span class="status-tag pending">Pending</span>'}
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        ${p.id !== currentUser?.id ? `
+          ${p.approved
+            ? `<button class="btn btn-sm btn-secondary" onclick="setUserApproved('${p.id}',false)">Revoke</button>`
+            : `<button class="btn btn-sm btn-primary"   onclick="setUserApproved('${p.id}',true)">Approve</button>`}
+          <button class="btn btn-sm btn-ghost" onclick="toggleUserAdmin('${p.id}',${!p.is_admin})">${p.is_admin ? 'Remove admin' : 'Make admin'}</button>
+        ` : '<span style="color:var(--ink-5);font-size:0.8rem;">(you)</span>'}
+      </div>
+    </div>`).join('');
+}
+
+async function setUserApproved(userId, approved) {
+  const { error } = await sb.from('profiles').update({ approved }).eq('id', userId);
+  if (error) { toast('Update failed', 'danger'); return; }
+  toast(approved ? 'User approved' : 'Access revoked', approved ? 'ok' : 'warn');
+  loadAdminUsers();
+}
+
+async function toggleUserAdmin(userId, makeAdmin) {
+  const { error } = await sb.from('profiles').update({ is_admin: makeAdmin }).eq('id', userId);
+  if (error) { toast('Update failed', 'danger'); return; }
+  toast(makeAdmin ? 'Promoted to admin' : 'Admin rights removed', 'ok');
+  loadAdminUsers();
+}
 
 /* ── DOC TYPES ── */
 const DOC_TYPES = {
@@ -1045,20 +1238,6 @@ function onMissingPickerChange(sel) {
   renderJobLibrary();
 }
 
-/* Dismissible prototype banner — remembers state in localStorage */
-function dismissProtoBanner() {
-  const banner = document.getElementById('protoBanner');
-  if (banner) banner.style.display = 'none';
-  try { localStorage.setItem('fieldhub.protoBannerDismissed', '1'); } catch(e) {}
-}
-(function initProtoBanner() {
-  try {
-    if (localStorage.getItem('fieldhub.protoBannerDismissed') === '1') {
-      const banner = document.getElementById('protoBanner');
-      if (banner) banner.style.display = 'none';
-    }
-  } catch(e) { /* localStorage may not be available — ignore */ }
-})();
 
 /* Keyboard shortcuts */
 document.addEventListener('keydown', e => {
@@ -1154,7 +1333,7 @@ async function saveJob() {
     await logActivity(editingJobId, 'job_updated', `${currentUser.name} edited job details`);
   } else {
     const { data: job, error } = await sb.from('jobs')
-      .insert({ ...fields, created_by_name: currentUser.name })
+      .insert({ ...fields, created_by_name: currentUser.name, created_by: currentUser.id })
       .select().single();
     if (error) { toast('Save failed', 'danger'); return; }
     await logActivity(job.id, 'job_created', `${currentUser.name} created the job folder`);
@@ -1281,6 +1460,7 @@ async function createDoc(type) {
     title:           `${def.label} — ${job.wo_number}`,
     created_by_name: currentUser.name,
     updated_by_name: currentUser.name,
+    created_by:      currentUser.id,
   }).select().single();
   if (error) { console.error('createDoc error:', error); toast('Could not create document', 'danger'); return; }
   await logActivity(activeJobId, 'doc_created', `${currentUser.name} started a new ${def.label}`, doc.id);
@@ -1437,12 +1617,6 @@ document.getElementById('confirmOk').addEventListener('click', () => {
   closeConfirm();
 });
 
-/* ═══════════════ USER SWITCHING (prototype only) ═══════════════ */
-document.getElementById('userPicker').addEventListener('change', e => {
-  currentUser = USERS[e.target.value];
-  document.getElementById('userAvatar').textContent = currentUser.initials;
-  document.getElementById('userName').textContent = currentUser.name;
-});
 
 /* ═══════════════ DEMO SEED ═══════════════ */
 async function seedIfEmpty() {
@@ -1526,10 +1700,7 @@ async function seedIfEmpty() {
 }
 
 /* ═══════════════ INIT ═══════════════ */
-(async () => {
-  await seedIfEmpty();
-  await renderJobLibrary();
-})();
+initAuth();
 </script>
 </body>
 </html>
