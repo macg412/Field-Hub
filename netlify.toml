@@ -1,7 +1,11 @@
 [build]
+  command = "cp src/job-card/jobcard.html hub/apps/jobcard.html && cp src/scoping/scoping.html hub/apps/scoping.html && cp src/stores/storeman.html hub/apps/storeman.html && cp src/forms/fieldforms.html hub/apps/fieldforms.html"
   publish = "hub"
 
-# No build command — the hub is plain HTML/JS with no compile step.
+# App files are built from git submodules (src/) into hub/apps/ before deploy.
+# Submodules: Job-Card, Scoping-, Stores, Field-Forms (all macg412/* on GitHub).
+# For Netlify-direct deploys, set GIT_SUBMODULE_STRATEGY=recursive in env vars.
+# For CI deploys (GitHub Actions), submodules are checked out in the workflow.
 # Supabase credentials are injected via Netlify environment variables.
 # Set SUPABASE_URL and SUPABASE_ANON_KEY in the Netlify dashboard under
 # Site settings → Environment variables. Do NOT commit them here.

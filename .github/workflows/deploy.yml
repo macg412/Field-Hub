@@ -9,6 +9,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build apps into hub
+        run: |
+          cp src/job-card/jobcard.html hub/apps/jobcard.html
+          cp src/scoping/scoping.html hub/apps/scoping.html
+          cp src/stores/storeman.html hub/apps/storeman.html
+          cp src/forms/fieldforms.html hub/apps/fieldforms.html
 
       - name: Deploy to Netlify
         run: npx netlify-cli@latest deploy --dir hub --prod --auth ${{ secrets.NETLIFY_AUTH_TOKEN }} --site a5535789-007d-4b4a-b238-0a45d5b1a6c4

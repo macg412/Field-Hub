@@ -1,0 +1,12 @@
+[submodule "src/job-card"]
+	path = src/job-card
+	url = https://github.com/macg412/Job-Card.git
+[submodule "src/scoping"]
+	path = src/scoping
+	url = https://github.com/macg412/Scoping-.git
+[submodule "src/stores"]
+	path = src/stores
+	url = https://github.com/macg412/Stores.git
+[submodule "src/forms"]
+	path = src/forms
+	url = https://github.com/macg412/Field-Forms.git
