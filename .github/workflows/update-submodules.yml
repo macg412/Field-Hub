@@ -1,0 +1,30 @@
+name: Update submodule and redeploy
+
+on:
+  repository_dispatch:
+    types: [submodule-update]
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Update submodule to latest
+        run: git submodule update --remote "${{ github.event.client_payload.submodule }}"
+
+      - name: Commit and push if submodule changed
+        run: |
+          git config user.email "action@github.com"
+          git config user.name "GitHub Actions"
+          git add -A
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: update ${{ github.event.client_payload.submodule }}"
+            git pull --rebase origin master
+            git push
+          else
+            echo "No submodule change — skipping push"
+          fi
