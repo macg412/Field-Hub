@@ -1650,9 +1650,9 @@ async function saveJob() {
   }
   closeJobModal();
   if (editingJobId && document.getElementById('screenFolder').classList.contains('active')) {
-    toast('Job updated', 'ok'); openJob(editingJobId);
+    toast('Job updated', 'success'); openJob(editingJobId);
   } else {
-    toast(editingJobId ? 'Job updated' : 'Job created', 'ok'); renderJobLibrary();
+    toast(editingJobId ? 'Job updated' : 'Job created', 'success'); renderJobLibrary();
   }
 }
 
