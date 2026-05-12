@@ -33,4 +33,4 @@ jobs:
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: a5535789-007d-4b4a-b238-0a45d5b1a6c4
-        timeout-minutes: 5
+        timeout-minutes: 15
