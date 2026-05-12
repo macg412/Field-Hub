@@ -407,6 +407,33 @@
   .admin-user-info { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
   .admin-user-badges { display: flex; gap: 5px; flex-shrink: 0; }
   .status-tag.pending { background: var(--warn-soft); color: var(--warn); }
+
+  /* ── JOB TYPE SELECTOR ── */
+  .job-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .job-type-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 22px 16px; border-radius: var(--r-lg); border: 1.5px solid var(--line); background: var(--surface); cursor: pointer; text-align: center; transition: all 0.14s; font-family: var(--font); width: 100%; }
+  .job-type-card:hover { transform: translateY(-1px); box-shadow: var(--sh-2); }
+  .job-type-card .jt-icon { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; flex-shrink: 0; }
+  .job-type-card .jt-icon svg { width: 17px; height: 17px; }
+  .job-type-card .jt-label { font-weight: 700; font-size: 1rem; color: var(--ink); letter-spacing: -0.02em; }
+  .job-type-card .jt-desc { font-size: 0.76rem; color: var(--ink-4); line-height: 1.3; }
+  .job-type-card.fault   { border-color: oklch(87% 0.05 27);  } .job-type-card.fault:hover   { border-color: var(--danger);  background: var(--danger-soft);  }
+  .job-type-card.fault   .jt-icon { background: var(--danger-soft);  color: var(--danger);  }
+  .job-type-card.defect  { border-color: oklch(87% 0.06 70);  } .job-type-card.defect:hover  { border-color: var(--warn);    background: var(--warn-soft);    }
+  .job-type-card.defect  .jt-icon { background: var(--warn-soft);    color: var(--warn);    }
+  .job-type-card.project { border-color: oklch(87% 0.03 258); } .job-type-card.project:hover { border-color: var(--accent);  background: var(--accent-soft);  }
+  .job-type-card.project .jt-icon { background: var(--accent-soft);  color: var(--accent);  }
+  .job-type-card.other   { border-color: var(--line-2);        } .job-type-card.other:hover   { border-color: var(--ink-4);  background: var(--surface-3);    }
+  .job-type-card.other   .jt-icon { background: var(--surface-3);    color: var(--ink-3);   }
+
+  /* ── TYPE BADGE ── */
+  .type-badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.02em; flex-shrink: 0; }
+  .type-badge.type-fault   { background: var(--danger-soft);  color: var(--danger);     }
+  .type-badge.type-defect  { background: var(--warn-soft);    color: var(--warn);       }
+  .type-badge.type-project { background: var(--accent-soft);  color: var(--accent-ink); }
+  .type-badge.type-other   { background: var(--surface-3);    color: var(--ink-3);      }
+
+  /* ── FIELD HINT ── */
+  .field-hint { font-size: 0.76rem; color: var(--ink-5); margin-top: 4px; font-family: var(--mono); letter-spacing: 0.01em; }
 </style>
 </head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -711,33 +738,132 @@
      ════════════════════════════════════════════════════════════════════ -->
 <div class="modal-bg" id="jobModal">
   <div class="modal">
-    <div class="modal-head">
-      <h3 id="jobModalTitle">New Job</h3>
-      <button class="modal-close" onclick="closeJobModal()"><svg><use href="#icon-x"/></svg></button>
-    </div>
-    <div class="modal-body">
-      <div class="field">
-        <label>Work Order # <span class="req">*</span></label>
-        <input type="text" id="jWO" placeholder="e.g. WO123456 or 500-12345">
+
+    <!-- ── STEP 1: TYPE SELECTION ── -->
+    <div id="jobStep1">
+      <div class="modal-head">
+        <h3>New Job</h3>
+        <button class="modal-close" onclick="closeJobModal()"><svg><use href="#icon-x"/></svg></button>
       </div>
-      <div class="field">
-        <label>Job Name <span class="req">*</span></label>
-        <input type="text" id="jName" placeholder="e.g. Smith St transformer replacement">
-      </div>
-      <div class="field">
-        <label>Site Address <span class="req">*</span></label>
-        <input type="text" id="jAddr" placeholder="e.g. 12 Smith St, Hawera">
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label>Job Type</label>
-          <select id="jType">
-            <option value="Project">Project</option>
-            <option value="Fault">Fault</option>
-            <option value="Defect">Defect</option>
-            <option value="Maintenance">Maintenance</option>
-          </select>
+      <div class="modal-body">
+        <p style="font-size:0.86rem;color:var(--ink-3);margin-bottom:18px;">Select the job type to continue</p>
+        <div class="job-type-grid">
+          <button class="job-type-card fault"   onclick="selectJobType('Fault')">
+            <div class="jt-icon"><svg><use href="#icon-bolt"/></svg></div>
+            <div class="jt-label">Fault</div>
+            <div class="jt-desc">Reactive emergency response</div>
+          </button>
+          <button class="job-type-card defect"  onclick="selectJobType('Defect')">
+            <div class="jt-icon"><svg><use href="#icon-warning"/></svg></div>
+            <div class="jt-label">Defect</div>
+            <div class="jt-desc">Identified fault repair</div>
+          </button>
+          <button class="job-type-card project" onclick="selectJobType('Project')">
+            <div class="jt-icon"><svg><use href="#icon-clipboard"/></svg></div>
+            <div class="jt-label">Project</div>
+            <div class="jt-desc">Planned capital works</div>
+          </button>
+          <button class="job-type-card other"   onclick="selectJobType('Other')">
+            <div class="jt-icon"><svg><use href="#icon-folder"/></svg></div>
+            <div class="jt-label">Other</div>
+            <div class="jt-desc">General work order</div>
+          </button>
         </div>
+      </div>
+    </div>
+
+    <!-- ── STEP 2: JOB DETAILS ── -->
+    <div id="jobStep2" hidden>
+      <div class="modal-head">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+          <button id="jobBackBtn" class="btn btn-ghost btn-sm" onclick="backToTypeSelect()" style="flex-shrink:0;"><svg><use href="#icon-arrow-left"/></svg></button>
+          <h3 id="jobModalTitle" style="margin:0;">New Job</h3>
+          <span id="jobTypeBadge" class="type-badge"></span>
+        </div>
+        <button class="modal-close" onclick="closeJobModal()"><svg><use href="#icon-x"/></svg></button>
+      </div>
+      <div class="modal-body">
+
+        <!-- WO# (all types) -->
+        <div class="field">
+          <label>Work Order # <span class="req">*</span></label>
+          <input type="text" id="jWO" placeholder="50000000" maxlength="20" autocomplete="off">
+          <div class="field-hint" id="jWOHint">Must be 8 digits starting with 5</div>
+        </div>
+
+        <!-- Date / Scheduled Finish Date (all types, label+req varies) -->
+        <div class="field" id="jFieldDate">
+          <label><span id="jDateLabelText">Date</span><span id="jDateReq"> *</span></label>
+          <input type="date" id="jDate">
+        </div>
+
+        <!-- CAE # and JE # side-by-side (Fault only) -->
+        <div class="field-row" id="jRowCAEJE" hidden>
+          <div class="field">
+            <label>CAE #</label>
+            <input type="text" id="jCAE" placeholder="Optional" autocomplete="off">
+          </div>
+          <div class="field">
+            <label>JE #</label>
+            <input type="text" id="jJE" placeholder="Optional" autocomplete="off">
+          </div>
+        </div>
+
+        <!-- Downer WO# (Defect, Project) -->
+        <div class="field" id="jFieldDownerWO" hidden>
+          <label>Downer Work Order #</label>
+          <input type="text" id="jDownerWO" placeholder="Optional" autocomplete="off">
+        </div>
+
+        <!-- ELE # (Project) -->
+        <div class="field" id="jFieldELE" hidden>
+          <label>ELE #</label>
+          <input type="text" id="jELE" placeholder="Optional" autocomplete="off">
+        </div>
+
+        <!-- Address / Location (all types, label+req varies) -->
+        <div class="field" id="jFieldAddr">
+          <label><span id="jAddrLabelText">Address</span><span id="jAddrReq"> *</span></label>
+          <input type="text" id="jAddr" placeholder="e.g. 12 Smith St, Hawera" autocomplete="off">
+        </div>
+
+        <!-- Job Name (Other only) -->
+        <div class="field" id="jFieldName" hidden>
+          <label>Job Name</label>
+          <input type="text" id="jName" placeholder="e.g. Annual inspection" autocomplete="off">
+        </div>
+
+        <!-- Description (Fault, Defect, Project) -->
+        <div class="field" id="jFieldDesc" hidden>
+          <label>Description <span class="req">*</span></label>
+          <textarea id="jDesc" placeholder="Describe the work…" rows="3"></textarea>
+        </div>
+
+        <!-- 1st Responder (Fault) -->
+        <div class="field" id="jFieldResp1" hidden>
+          <label>1st Responder <span class="req">*</span></label>
+          <input type="text" id="jResp1" placeholder="Name" autocomplete="off">
+        </div>
+
+        <!-- 2nd Responder in Charge (Fault) -->
+        <div class="field" id="jFieldResp2" hidden>
+          <label>2nd Responder in Charge</label>
+          <input type="text" id="jResp2" placeholder="Optional" autocomplete="off">
+        </div>
+
+        <!-- Downer PM and PowerCo PM side-by-side (Project) -->
+        <div class="field-row" id="jRowPMs" hidden>
+          <div class="field">
+            <label>Downer PM</label>
+            <input type="text" id="jDownerPM" placeholder="Optional" autocomplete="off">
+          </div>
+          <div class="field">
+            <label>PowerCo PM</label>
+            <input type="text" id="jPowerCoPM" placeholder="Optional" autocomplete="off">
+          </div>
+        </div>
+
+        <!-- Status (all types) -->
         <div class="field">
           <label>Status</label>
           <select id="jStatus">
@@ -746,26 +872,20 @@
             <option value="archived">Archived</option>
           </select>
         </div>
-      </div>
-      <div class="field-row">
+
+        <!-- Notes (all types) -->
         <div class="field">
-          <label>Scheduled Date</label>
-          <input type="date" id="jDate">
+          <label>Notes</label>
+          <textarea id="jNotes" placeholder="Any extra context for the team…"></textarea>
         </div>
-        <div class="field">
-          <label>CAE / Reference #</label>
-          <input type="text" id="jCAE" placeholder="Optional">
-        </div>
+
       </div>
-      <div class="field">
-        <label>Notes</label>
-        <textarea id="jNotes" placeholder="Any extra context for the team…"></textarea>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeJobModal()">Cancel</button>
+        <button class="btn btn-primary" id="jobSaveBtn" onclick="saveJob()">Create Job</button>
       </div>
     </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeJobModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveJob()">Save Job</button>
-    </div>
+
   </div>
 </div>
 
@@ -1175,7 +1295,8 @@ async function renderJobLibrary() {
     }
 
     if (!q) return true;
-    return [j.wo_number, j.job_name, j.address, j.cae_number, j.notes, j.created_by_name]
+    return [j.wo_number, j.job_name, j.address, j.description, j.cae_number,
+            j.downer_wo_number, j.first_responder, j.notes, j.created_by_name]
       .some(v => (v || '').toLowerCase().includes(q));
   });
 
@@ -1222,7 +1343,7 @@ async function renderJobLibrary() {
             ${statusTag}
           </div>
           <div class="job-name">${esc(j.job_name || 'Untitled job')}</div>
-          <div class="job-addr">${ICO('icon-pin')}${esc(j.address || 'No address')}</div>
+          <div class="job-addr">${ICO('icon-pin')}${esc(j.job_type === 'Fault' ? (j.description || 'No description') : (j.address || 'No location'))}</div>
         </div>
         <div class="doc-pills">${pills}</div>
         <div class="doc-progress">${types.size}<span class="total">/${total}</span></div>
@@ -1343,52 +1464,179 @@ function toast(msg, kind = '') {
 }
 
 /* ═══════════════ CREATE / EDIT JOB ═══════════════ */
+let _selectedJobType = null;
+
+function _resetJobFields() {
+  ['jWO','jDate','jCAE','jJE','jDownerWO','jELE','jAddr','jName','jDesc','jResp1','jResp2','jDownerPM','jPowerCoPM','jNotes']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('jStatus').value = 'active';
+}
+
 function openCreateJob() {
   editingJobId = null;
-  document.getElementById('jobModalTitle').textContent = 'New Job';
-  ['jWO','jName','jAddr','jCAE','jNotes'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('jType').value = 'Project';
-  document.getElementById('jStatus').value = 'active';
-  document.getElementById('jDate').value = new Date().toISOString().slice(0,10);
+  _selectedJobType = null;
+  _resetJobFields();
+  document.getElementById('jobStep1').hidden = false;
+  document.getElementById('jobStep2').hidden = true;
   document.getElementById('jobModal').classList.add('show');
-  setTimeout(() => document.getElementById('jWO').focus(), 50);
 }
+
+function selectJobType(type) {
+  _selectedJobType = type;
+  document.getElementById('jobStep1').hidden = true;
+  document.getElementById('jobStep2').hidden = false;
+  document.getElementById('jobModalTitle').textContent = editingJobId ? `Edit ${type}` : `New ${type}`;
+  const badge = document.getElementById('jobTypeBadge');
+  badge.textContent = type;
+  badge.className = `type-badge type-${type.toLowerCase()}`;
+  document.getElementById('jobBackBtn').hidden = !!editingJobId;
+  document.getElementById('jobSaveBtn').textContent = editingJobId ? 'Save Changes' : 'Create Job';
+  _applyFieldsForType(type);
+  const first = document.querySelector('#jobStep2 .field:not([hidden]) input, #jobStep2 .field:not([hidden]) textarea');
+  if (first) setTimeout(() => first.focus(), 50);
+}
+
+function _applyFieldsForType(type) {
+  const show = (id, v) => { const el = document.getElementById(id); if (el) el.hidden = !v; };
+  const isFault = type === 'Fault', isDefect = type === 'Defect',
+        isProject = type === 'Project', isOther = type === 'Other';
+
+  // WO# hint
+  document.getElementById('jWO').placeholder = isOther ? 'Any format' : '50000000';
+  document.getElementById('jWOHint').textContent = isOther
+    ? 'Mandatory — any format accepted'
+    : 'Must be 8 digits starting with 5';
+
+  // Date: Fault=required, Defect/Project=Scheduled Finish Date (opt), Other=optional
+  document.getElementById('jDateLabelText').textContent = (isFault || isOther) ? 'Date' : 'Scheduled Finish Date';
+  document.getElementById('jDateReq').hidden = !isFault;
+
+  // CAE# + JE# row (Fault only)
+  show('jRowCAEJE', isFault);
+
+  // Downer WO# (Defect, Project)
+  show('jFieldDownerWO', isDefect || isProject);
+
+  // ELE# (Project only)
+  show('jFieldELE', isProject);
+
+  // Address / Location: Fault=Address req, Defect=Location req, Project/Other=Location opt
+  document.getElementById('jAddrLabelText').textContent = isFault ? 'Address' : 'Location';
+  document.getElementById('jAddrReq').hidden = !(isFault || isDefect);
+  document.getElementById('jAddr').placeholder = isFault
+    ? 'e.g. 12 Smith St, Hawera' : 'e.g. Eltham Rd substation';
+
+  // Job Name (Other only)
+  show('jFieldName', isOther);
+
+  // Description (Fault, Defect, Project — not Other)
+  show('jFieldDesc', !isOther);
+
+  // 1st & 2nd Responder (Fault only)
+  show('jFieldResp1', isFault);
+  show('jFieldResp2', isFault);
+
+  // Downer PM + PowerCo PM row (Project only)
+  show('jRowPMs', isProject);
+}
+
+function backToTypeSelect() {
+  document.getElementById('jobStep1').hidden = false;
+  document.getElementById('jobStep2').hidden = true;
+}
+
+function closeJobModal() {
+  document.getElementById('jobModal').classList.remove('show');
+  document.getElementById('jobStep1').hidden = false;
+  document.getElementById('jobStep2').hidden = true;
+}
+
 async function editJob() {
   const { data: job } = await sb.from('jobs').select('*').eq('id', activeJobId).single();
   if (!job) return;
   editingJobId = job.id;
-  document.getElementById('jobModalTitle').textContent = 'Edit Job';
-  document.getElementById('jWO').value     = job.wo_number      || '';
-  document.getElementById('jName').value   = job.job_name       || '';
-  document.getElementById('jAddr').value   = job.address        || '';
-  document.getElementById('jType').value   = job.job_type       || 'Project';
-  document.getElementById('jStatus').value = job.status         || 'active';
-  document.getElementById('jDate').value   = job.scheduled_date || '';
-  document.getElementById('jCAE').value    = job.cae_number     || '';
-  document.getElementById('jNotes').value  = job.notes          || '';
+  const type = job.job_type || 'Other';
+  document.getElementById('jWO').value        = job.wo_number        || '';
+  document.getElementById('jDate').value      = job.scheduled_date   || '';
+  document.getElementById('jCAE').value       = job.cae_number       || '';
+  document.getElementById('jJE').value        = job.je_number        || '';
+  document.getElementById('jDownerWO').value  = job.downer_wo_number || '';
+  document.getElementById('jELE').value       = job.ele_number       || '';
+  document.getElementById('jAddr').value      = job.address          || '';
+  document.getElementById('jName').value      = type === 'Other' ? (job.job_name || '') : '';
+  document.getElementById('jDesc').value      = job.description      || '';
+  document.getElementById('jResp1').value     = job.first_responder  || '';
+  document.getElementById('jResp2').value     = job.second_responder || '';
+  document.getElementById('jDownerPM').value  = job.downer_pm        || '';
+  document.getElementById('jPowerCoPM').value = job.powerco_pm       || '';
+  document.getElementById('jStatus').value    = job.status           || 'active';
+  document.getElementById('jNotes').value     = job.notes            || '';
+  selectJobType(type);
   document.getElementById('jobModal').classList.add('show');
 }
-function closeJobModal() { document.getElementById('jobModal').classList.remove('show'); }
 
 async function saveJob() {
-  const wo   = document.getElementById('jWO').value.trim();
-  const name = document.getElementById('jName').value.trim();
-  const addr = document.getElementById('jAddr').value.trim();
-  if (!wo || !name || !addr) {
-    toast('Work Order #, Job Name, and Address are required.', 'warn');
-    return;
+  const type     = _selectedJobType;
+  const wo       = document.getElementById('jWO').value.trim();
+  const date     = document.getElementById('jDate').value || null;
+  const cae      = document.getElementById('jCAE').value.trim()       || null;
+  const je       = document.getElementById('jJE').value.trim()        || null;
+  const downerWO = document.getElementById('jDownerWO').value.trim()  || null;
+  const ele      = document.getElementById('jELE').value.trim()       || null;
+  const addr     = document.getElementById('jAddr').value.trim()      || null;
+  const jobName  = document.getElementById('jName').value.trim()      || null;
+  const desc     = document.getElementById('jDesc').value.trim()      || null;
+  const resp1    = document.getElementById('jResp1').value.trim()     || null;
+  const resp2    = document.getElementById('jResp2').value.trim()     || null;
+  const downerPM = document.getElementById('jDownerPM').value.trim()  || null;
+  const pcPM     = document.getElementById('jPowerCoPM').value.trim() || null;
+  const status   = document.getElementById('jStatus').value;
+  const notes    = document.getElementById('jNotes').value.trim()     || null;
+
+  // Validate
+  if (!wo) { toast('Work Order # is required', 'warn'); return; }
+  if (type !== 'Other' && !/^5\d{7}$/.test(wo)) {
+    toast('Work Order # must be exactly 8 digits starting with 5', 'warn'); return;
   }
+  if (type === 'Fault') {
+    if (!date)  { toast('Date is required', 'warn'); return; }
+    if (!addr)  { toast('Address is required', 'warn'); return; }
+    if (!desc)  { toast('Description is required', 'warn'); return; }
+    if (!resp1) { toast('1st Responder is required', 'warn'); return; }
+  }
+  if (type === 'Defect') {
+    if (!desc) { toast('Description is required', 'warn'); return; }
+    if (!addr) { toast('Location is required', 'warn'); return; }
+  }
+  if (type === 'Project') {
+    if (!desc) { toast('Description is required', 'warn'); return; }
+  }
+
+  // Derive job_name: Fault=address, Defect/Project=description, Other=jobName field
+  const derivedName = type === 'Fault' ? addr
+                    : type === 'Other'  ? (jobName || wo)
+                    : desc;
+
   const fields = {
-    wo_number:       wo,
-    job_name:        name,
-    address:         addr,
-    job_type:        document.getElementById('jType').value,
-    status:          document.getElementById('jStatus').value,
-    scheduled_date:  document.getElementById('jDate').value || null,
-    cae_number:      document.getElementById('jCAE').value.trim() || null,
-    notes:           document.getElementById('jNotes').value.trim() || null,
-    updated_by_name: currentUser.name,
+    wo_number:        wo,
+    job_name:         derivedName,
+    address:          addr,
+    job_type:         type,
+    status,
+    scheduled_date:   date,
+    cae_number:       cae,
+    je_number:        je,
+    ele_number:       ele,
+    downer_wo_number: downerWO,
+    description:      desc,
+    first_responder:  resp1,
+    second_responder: resp2,
+    downer_pm:        downerPM,
+    powerco_pm:       pcPM,
+    notes,
+    updated_by_name:  currentUser.name,
   };
+
   if (editingJobId) {
     const { error } = await sb.from('jobs').update(fields).eq('id', editingJobId);
     if (error) { toast('Save failed', 'danger'); return; }
@@ -1402,9 +1650,9 @@ async function saveJob() {
   }
   closeJobModal();
   if (editingJobId && document.getElementById('screenFolder').classList.contains('active')) {
-    toast('Job updated', 'success'); openJob(editingJobId);
+    toast('Job updated', 'ok'); openJob(editingJobId);
   } else {
-    toast(editingJobId ? 'Job updated' : 'Job created', 'success'); renderJobLibrary();
+    toast(editingJobId ? 'Job updated' : 'Job created', 'ok'); renderJobLibrary();
   }
 }
 
@@ -1415,9 +1663,16 @@ async function openJob(jobId) {
   if (!job) return;
 
   document.getElementById('crumbJob').textContent = job.job_name || job.wo_number;
-  document.getElementById('folderWO').textContent = `WO ${job.wo_number}${job.cae_number ? ` · CAE ${job.cae_number}` : ''}`;
+  // Secondary IDs shown next to WO# depend on job type
+  const _secIds = [];
+  if (job.job_type === 'Fault')  { if (job.cae_number)     _secIds.push(`CAE ${job.cae_number}`); if (job.je_number) _secIds.push(`JE ${job.je_number}`); }
+  if (job.job_type === 'Defect' || job.job_type === 'Project') { if (job.downer_wo_number) _secIds.push(`Downer ${job.downer_wo_number}`); }
+  if (job.job_type === 'Project') { if (job.ele_number) _secIds.push(`ELE ${job.ele_number}`); }
+  document.getElementById('folderWO').textContent = `WO ${job.wo_number}${_secIds.length ? ' · ' + _secIds.join(' · ') : ''}`;
   document.getElementById('folderName').textContent = job.job_name;
-  document.getElementById('folderAddrText').textContent = job.address;
+  // Fault: show description under the name; all others: show address/location
+  document.getElementById('folderAddrText').textContent =
+    job.job_type === 'Fault' ? (job.description || '—') : (job.address || '—');
   document.getElementById('folderStatus').innerHTML = statusTag(job.status);
   document.getElementById('folderType').textContent = job.job_type || '—';
   document.getElementById('folderCreated').textContent = fmtDateTime(job.created_at);
@@ -1475,20 +1730,51 @@ async function openJob(jobId) {
     </div>`).join('') : '<div class="doc-empty" style="margin:8px;">No activity yet</div>';
 
   // Details tab
-  document.getElementById('detailsContent').innerHTML = `
-    <div class="folder-meta-grid" style="border-top:none;padding-top:0;">
-      <div class="meta-cell"><div class="label">Work Order #</div><div class="value">${esc(job.wo_number)}</div></div>
-      <div class="meta-cell"><div class="label">CAE / Reference</div><div class="value">${esc(job.cae_number || '—')}</div></div>
-      <div class="meta-cell"><div class="label">Job Name</div><div class="value">${esc(job.job_name)}</div></div>
-      <div class="meta-cell"><div class="label">Address</div><div class="value">${esc(job.address)}</div></div>
-      <div class="meta-cell"><div class="label">Job Type</div><div class="value">${esc(job.job_type)}</div></div>
-      <div class="meta-cell"><div class="label">Status</div><div class="value">${statusTag(job.status)}</div></div>
-      <div class="meta-cell"><div class="label">Scheduled</div><div class="value">${job.scheduled_date ? fmtDate(new Date(job.scheduled_date).getTime()) : '—'}</div></div>
-      <div class="meta-cell"><div class="label">Created</div><div class="value">${fmtDateTime(job.created_at)}<br><span style="font-size:0.74rem;color:var(--text-light);">by ${esc(job.created_by_name)}</span></div></div>
-      <div class="meta-cell" style="grid-column:1/-1;"><div class="label">Notes</div><div class="value" style="font-weight:400;line-height:1.5;">${esc(job.notes) || '—'}</div></div>
-    </div>`;
+  _renderDetailsTab(job);
 
   showScreen('screenFolder');
+}
+
+function _renderDetailsTab(job) {
+  const type = job.job_type || 'Other';
+  const cell = (label, value, full) =>
+    `<div class="meta-cell"${full?' style="grid-column:1/-1"':''}><div class="label">${label}</div><div class="value" style="${full?'font-weight:400;line-height:1.5;':''}">${value}</div></div>`;
+  const rows = [];
+  rows.push(cell('Work Order #', esc(job.wo_number)));
+  if (type === 'Fault') {
+    if (job.cae_number)    rows.push(cell('CAE #',      esc(job.cae_number)));
+    if (job.je_number)     rows.push(cell('JE #',       esc(job.je_number)));
+    rows.push(cell('Address', esc(job.address || '—')));
+    rows.push(cell('Description', esc(job.description || '—'), true));
+    rows.push(cell('1st Responder', esc(job.first_responder || '—')));
+    if (job.second_responder) rows.push(cell('2nd Responder', esc(job.second_responder)));
+    rows.push(cell('Date', job.scheduled_date ? fmtDate(new Date(job.scheduled_date)) : '—'));
+  }
+  if (type === 'Defect') {
+    if (job.downer_wo_number) rows.push(cell('Downer WO #', esc(job.downer_wo_number)));
+    rows.push(cell('Description', esc(job.description || '—'), true));
+    rows.push(cell('Location', esc(job.address || '—')));
+    if (job.scheduled_date) rows.push(cell('Scheduled Finish', fmtDate(new Date(job.scheduled_date))));
+  }
+  if (type === 'Project') {
+    if (job.downer_wo_number) rows.push(cell('Downer WO #', esc(job.downer_wo_number)));
+    if (job.ele_number)       rows.push(cell('ELE #',       esc(job.ele_number)));
+    rows.push(cell('Description', esc(job.description || '—'), true));
+    if (job.address)        rows.push(cell('Location',          esc(job.address)));
+    if (job.scheduled_date) rows.push(cell('Scheduled Finish',  fmtDate(new Date(job.scheduled_date))));
+    if (job.downer_pm)      rows.push(cell('Downer PM',         esc(job.downer_pm)));
+    if (job.powerco_pm)     rows.push(cell('PowerCo PM',        esc(job.powerco_pm)));
+  }
+  if (type === 'Other') {
+    if (job.address)        rows.push(cell('Location', esc(job.address)));
+    if (job.scheduled_date) rows.push(cell('Date',     fmtDate(new Date(job.scheduled_date))));
+  }
+  rows.push(cell('Status',   statusTag(job.status)));
+  rows.push(cell('Job Type', esc(type)));
+  rows.push(cell('Created',  `${fmtDateTime(job.created_at)}<br><span style="font-size:0.74rem;color:var(--ink-4);">by ${esc(job.created_by_name)}</span>`));
+  if (job.notes) rows.push(cell('Notes', esc(job.notes), true));
+  document.getElementById('detailsContent').innerHTML =
+    `<div class="folder-meta-grid" style="border-top:none;padding-top:0;">${rows.join('')}</div>`;
 }
 
 function activityIcon(action) {
