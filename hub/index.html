@@ -435,6 +435,16 @@
 
   /* ── FIELD HINT ── */
   .field-hint { font-size: 0.76rem; color: var(--ink-5); margin-top: 4px; font-family: var(--mono); letter-spacing: 0.01em; }
+
+  /* ── JOB TYPE FILTER CHIPS ── */
+  .filter-chip[data-type="Fault"]   { color: var(--danger);    border-color: oklch(87% 0.05 27);  }
+  .filter-chip[data-type="Defect"]  { color: var(--warn);      border-color: oklch(87% 0.06 70);  }
+  .filter-chip[data-type="Project"] { color: var(--accent-ink);border-color: oklch(87% 0.03 258); }
+  .filter-chip[data-type="Other"]   { color: var(--ink-3);     border-color: var(--line-2);       }
+  .filter-chip.active[data-type="Fault"]   { background: var(--danger);  border-color: var(--danger);  color: #fff; }
+  .filter-chip.active[data-type="Defect"]  { background: oklch(55% 0.13 70); border-color: oklch(55% 0.13 70); color: #fff; }
+  .filter-chip.active[data-type="Project"] { background: var(--accent);  border-color: var(--accent);  color: #fff; }
+  .filter-chip.active[data-type="Other"]   { background: var(--ink-3);   border-color: var(--ink-3);   color: #fff; }
 </style>
 </head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -600,6 +610,15 @@
         <option value="wo">Work Order #</option>
         <option value="name">Job name A–Z</option>
       </select>
+    </div>
+    <div class="toolbar-row">
+      <div class="filter-group" id="typeFilters">
+        <button class="filter-chip active" data-type="all">All types</button>
+        <button class="filter-chip" data-type="Fault"><svg><use href="#icon-bolt"/></svg> Fault</button>
+        <button class="filter-chip" data-type="Defect"><svg><use href="#icon-warning"/></svg> Defect</button>
+        <button class="filter-chip" data-type="Project"><svg><use href="#icon-clipboard"/></svg> Project</button>
+        <button class="filter-chip" data-type="Other"><svg><use href="#icon-folder"/></svg> Other</button>
+      </div>
     </div>
     <div class="toolbar-divider"></div>
     <div class="toolbar-row doc-filter-row">
@@ -1264,6 +1283,7 @@ async function logActivity(job_id, action, summary, doc_id=null) {
 /* ═══════════════ STATE ═══════════════ */
 let activeFilter = 'all';
 let activeDocFilter = 'any';
+let activeTypeFilter = 'all';
 let activeJobId = null;
 let activeDocId = null;
 let activeDocType = null;
@@ -1285,6 +1305,7 @@ async function renderJobLibrary() {
 
   let filtered = jobs.filter(j => {
     if (activeFilter !== 'all' && j.status !== activeFilter) return false;
+    if (activeTypeFilter !== 'all' && j.job_type !== activeTypeFilter) return false;
 
     // Doc-type filter
     const types = new Set((docsByJob[j.id] || []).map(d => d.doc_type));
@@ -1341,6 +1362,7 @@ async function renderJobLibrary() {
           <div class="job-wo">
             <span>WO ${esc(j.wo_number || '—')}</span>
             ${j.cae_number ? `<span class="sep">·</span><span class="cae">CAE ${esc(j.cae_number)}</span>` : ''}
+            <span class="type-badge type-${['Fault','Defect','Project','Other'].includes(j.job_type) ? j.job_type.toLowerCase() : 'other'}">${esc(j.job_type || 'Unknown')}</span>
             ${statusTag}
           </div>
           <div class="job-name">${esc(j.job_name || 'Untitled job')}</div>
@@ -1395,6 +1417,15 @@ document.getElementById('statusFilters').addEventListener('click', e => {
   document.querySelectorAll('#statusFilters .filter-chip').forEach(c => c.classList.remove('active'));
   e.target.classList.add('active');
   activeFilter = e.target.dataset.status;
+  renderJobLibrary();
+});
+
+/* Job type filter chips */
+document.getElementById('typeFilters').addEventListener('click', e => {
+  if (!e.target.classList.contains('filter-chip')) return;
+  document.querySelectorAll('#typeFilters .filter-chip').forEach(c => c.classList.remove('active'));
+  e.target.classList.add('active');
+  activeTypeFilter = e.target.dataset.type;
   renderJobLibrary();
 });
 
