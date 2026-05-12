@@ -21,8 +21,5 @@ jobs:
           cp src/stores/storeman.html hub/apps/storeman.html
           cp src/forms/fieldforms.html hub/apps/fieldforms.html
 
-      - name: Install Netlify CLI
-        run: npm install -g netlify-cli
-
       - name: Deploy to Netlify
-        run: netlify deploy --dir hub --prod --auth ${{ secrets.NETLIFY_AUTH_TOKEN }} --site a5535789-007d-4b4a-b238-0a45d5b1a6c4
+        run: npx netlify-cli@17 deploy --dir hub --prod --auth ${{ secrets.NETLIFY_AUTH_TOKEN }} --site a5535789-007d-4b4a-b238-0a45d5b1a6c4
