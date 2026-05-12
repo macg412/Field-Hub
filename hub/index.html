@@ -949,8 +949,7 @@ function initAuth() {
   sb.auth.onAuthStateChange(async (event, session) => {
     console.log('[auth] state change:', event, session?.user?.email);
     if (event === 'INITIAL_SESSION') {
-      if (session) await handleSession(session);
-      else showAuthPanel('login');
+      showAuthPanel('login');
       return;
     }
     if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
