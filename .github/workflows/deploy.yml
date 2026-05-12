@@ -22,4 +22,15 @@ jobs:
           cp src/forms/fieldforms.html hub/apps/fieldforms.html
 
       - name: Deploy to Netlify
-        run: npx netlify-cli@17 deploy --dir hub --prod --auth ${{ secrets.NETLIFY_AUTH_TOKEN }} --site a5535789-007d-4b4a-b238-0a45d5b1a6c4
+        uses: nwtgck/actions-netlify@v3.0
+        with:
+          publish-dir: './hub'
+          production-deploy: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          enable-pull-request-comment: false
+          enable-commit-comment: false
+          enable-github-deployment: false
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: a5535789-007d-4b4a-b238-0a45d5b1a6c4
+        timeout-minutes: 5
