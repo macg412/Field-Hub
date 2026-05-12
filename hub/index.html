@@ -488,8 +488,16 @@
       </div>
     </div>
 
-    <!-- LOGIN (visible by default — JS hides on successful session) -->
-    <div id="panelLogin" style="display:block">
+    <!-- LOADING — shown while session is being resolved -->
+    <div id="panelLoading">
+      <div style="text-align:center;padding:28px 0 20px;">
+        <div style="width:32px;height:32px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 14px;"></div>
+        <div style="font-size:0.88rem;color:var(--ink-4);">Checking session…</div>
+      </div>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="panelLogin" hidden>
       <div class="auth-title">Sign in</div>
       <div class="field"><label>Email</label><input type="email" id="loginEmail" autocomplete="email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <div class="field"><label>Password</label><input type="password" id="loginPassword" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
@@ -926,7 +934,7 @@ let currentUser = null; // set by handleSession() after sign-in
 
 /* ═══════════════ AUTH ═══════════════ */
 function showAuthPanel(name) {
-  ['login','signup','confirm','pending'].forEach(p => {
+  ['loading','login','signup','confirm','pending'].forEach(p => {
     const el = document.getElementById('panel' + p.charAt(0).toUpperCase() + p.slice(1));
     if (el) el.hidden = (p !== name);
   });
@@ -934,21 +942,35 @@ function showAuthPanel(name) {
 }
 function hideAuthOverlay() { document.getElementById('authOverlay').style.display = 'none'; }
 
+let _intentionalSignOut = false;
+
 function initAuth() {
-  // Use onAuthStateChange as sole session source — avoids the getSession() lock
-  // that can cause signInWithPassword to hang if the initial fetch stalls.
+  showAuthPanel('loading');
   sb.auth.onAuthStateChange(async (event, session) => {
     console.log('[auth] state change:', event, session?.user?.email);
     if (event === 'INITIAL_SESSION') {
       if (session) await handleSession(session);
       else showAuthPanel('login');
+      return;
     }
-    if (event === 'SIGNED_IN')  await handleSession(session);
-    if (event === 'SIGNED_OUT') { currentUser = null; showAuthPanel('login'); }
+    if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      if (session) await handleSession(session);
+      return;
+    }
+    if (event === 'SIGNED_OUT') {
+      if (_intentionalSignOut) {
+        _intentionalSignOut = false;
+        currentUser = null;
+        showAuthPanel('login');
+      }
+      // Background SIGNED_OUT (visibility change / token refresh race) — ignored.
+      // Session is recovered on next INITIAL_SESSION or explicit action.
+    }
   });
 }
 
 async function handleSession(session) {
+  const alreadyLoggedIn = !!currentUser;
   try {
     const fetchWithTimeout = (promise, ms) => Promise.race([
       promise,
@@ -958,16 +980,16 @@ async function handleSession(session) {
     let profile;
     try {
       const { data } = await fetchWithTimeout(
-        sb.from('profiles').select('*').eq('id', session.user.id).single(), 5000
+        sb.from('profiles').select('*').eq('id', session.user.id).single(), 8000
       );
       profile = data;
     } catch(e) {
       console.error('profile fetch failed/timed out:', e);
-      showAuthPanel('login');
+      if (!alreadyLoggedIn) showAuthPanel('login');
       return;
     }
 
-    if (!profile) { console.error('no profile for', session.user.id); showAuthPanel('login'); return; }
+    if (!profile) { console.error('no profile for', session.user.id); if (!alreadyLoggedIn) showAuthPanel('login'); return; }
     if (!profile.approved) { showAuthPanel('pending'); return; }
 
     const initials = (profile.name || session.user.email)
@@ -976,15 +998,18 @@ async function handleSession(session) {
     currentUser = { id: session.user.id, name: profile.name || session.user.email,
                     email: session.user.email, isAdmin: profile.is_admin, initials };
 
-    hideAuthOverlay();
     document.getElementById('userAvatar').textContent = currentUser.initials;
     document.getElementById('userName').textContent = currentUser.name;
     document.getElementById('adminBtn').style.display = currentUser.isAdmin ? 'inline-flex' : 'none';
-    await renderJobLibrary();
-    showScreen('screenLibrary');
+
+    if (!alreadyLoggedIn) {
+      hideAuthOverlay();
+      await renderJobLibrary();
+      showScreen('screenLibrary');
+    }
   } catch(err) {
     console.error('handleSession error:', err);
-    showAuthPanel('login');
+    if (!alreadyLoggedIn) showAuthPanel('login');
   }
 }
 
@@ -1023,7 +1048,7 @@ async function doSignup() {
   showAuthPanel('confirm');
 }
 
-async function doSignOut() { await sb.auth.signOut(); }
+async function doSignOut() { _intentionalSignOut = true; await sb.auth.signOut(); }
 
 async function checkApproval() {
   const { data: { session } } = await sb.auth.getSession();
@@ -1092,7 +1117,9 @@ const ICO = id => `<svg><use href="#${id}"/></svg>`;
 /* ═══════════════ SUPABASE CLIENT ═══════════════ */
 const SUPABASE_URL  = 'https://rgcmisfwrflshggcwjie.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJnY21pc2Z3cmZsc2hnZ2N3amllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NzU2ODcsImV4cCI6MjA4OTM1MTY4N30.q2Et2UUoYYK2UXeBiKFfVbfYBVfIDOya0E-LL81cZCc';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+});
 
 /* ═══════════════ HELPERS ═══════════════ */
 const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
