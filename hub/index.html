@@ -389,6 +389,63 @@
     .doc-host iframe { height: calc(100vh - 180px); min-height: 420px; }
   }
 
+  /* ── DOC FOLDER SEARCH ── */
+  .doc-folder-search { position: relative; margin-bottom: 18px; flex: 1; min-width: 220px; }
+  .doc-folder-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--ink-5); pointer-events: none; }
+  .doc-folder-search input { width: 100%; padding: 9px 14px 9px 34px; border: 1px solid var(--line-2); border-radius: 9px; font-size: 0.86rem; font-family: var(--font); background: var(--bg-elev); color: var(--ink); }
+  .doc-folder-search input:focus { outline: none; border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .doc-section-head { flex-wrap: wrap; gap: 10px; }
+
+  /* ── PDF BADGE on doc items ── */
+  .pdf-badge { background: var(--ok-soft); color: var(--ok); font-size: 0.68rem; font-weight: 700; padding: 2px 7px; border-radius: 5px; flex-shrink: 0; font-family: var(--mono); letter-spacing: 0.04em; cursor: pointer; text-decoration: none; }
+  .pdf-badge:hover { background: oklch(90% 0.05 150); }
+
+  /* ── SITES SECTION ── */
+  .sites-section { margin-top: 8px; }
+  .sites-divider { display: flex; align-items: center; gap: 12px; margin: 22px 0 14px; }
+  .sites-divider span { font-size: 0.82rem; font-weight: 600; color: var(--ink-4); letter-spacing: 0.06em; text-transform: uppercase; font-family: var(--mono); white-space: nowrap; }
+  .sites-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+  .site-block { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); margin-bottom: 14px; box-shadow: var(--sh-1); overflow: hidden; }
+  .site-header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--surface-2); border-bottom: 1px solid var(--line); }
+  .site-chevron { width: 18px; height: 18px; color: var(--ink-4); flex-shrink: 0; transition: transform 0.18s; cursor: pointer; }
+  .site-block.collapsed .site-chevron { transform: rotate(-90deg); }
+  .site-name-input { flex: 1; border: none; background: transparent; font-size: 0.94rem; font-weight: 600; color: var(--ink); font-family: var(--font); padding: 0; outline: none; min-width: 0; cursor: text; }
+  .site-name-input:focus { color: var(--accent); }
+  .site-name-input::placeholder { color: var(--ink-4); }
+  .site-header-btns { display: flex; gap: 4px; flex-shrink: 0; }
+  .site-body { padding: 14px; }
+  .site-block.collapsed .site-body { display: none; }
+  .site-doc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 560px) { .site-doc-grid { grid-template-columns: 1fr; } }
+  .add-site-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px; border: 1.5px dashed var(--line-2); border-radius: var(--r-lg); background: transparent; color: var(--ink-4); font-size: 0.84rem; font-weight: 600; cursor: pointer; font-family: var(--font); transition: all 0.14s; letter-spacing: -0.005em; margin-top: 4px; }
+  .add-site-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .add-site-btn svg { width: 15px; height: 15px; }
+
+  /* ── PHOTO GALLERY ── */
+  .pg-modal { max-width: 740px !important; }
+  .pg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; padding: 4px 0 8px; }
+  @media (max-width: 540px) { .pg-grid { grid-template-columns: repeat(2, 1fr); } }
+  .pg-card { border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--surface); }
+  .pg-img-wrap { width: 100%; aspect-ratio: 4/3; background-size: cover; background-position: center; background-color: var(--surface-3); position: relative; }
+  .pg-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: zoom-in; }
+  .pg-del { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.5); color: #fff; border: none; border-radius: 6px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .pg-del:hover { background: var(--danger); }
+  .pg-del svg { width: 12px; height: 12px; }
+  .pg-meta { padding: 9px; }
+  .pg-caption { width: 100%; border: 1px solid var(--line-2); border-radius: 6px; padding: 6px 9px; font-size: 0.81rem; font-family: var(--font); color: var(--ink); background: var(--bg-elev); }
+  .pg-caption:focus { outline: none; border-color: var(--accent); }
+  .pg-notes { width: 100%; border: 1px solid var(--line-2); border-radius: 6px; padding: 6px 9px; font-size: 0.78rem; font-family: var(--font); color: var(--ink-3); background: var(--bg-elev); min-height: 52px; resize: none; margin-top: 5px; }
+  .pg-notes:focus { outline: none; border-color: var(--accent); }
+  .pg-empty { padding: 40px 20px; text-align: center; color: var(--ink-4); font-size: 0.88rem; }
+  .pg-empty svg { width: 32px; height: 32px; color: var(--ink-5); display: block; margin: 0 auto 10px; }
+  .pg-upload-progress { background: var(--accent-soft); border: 1px solid oklch(88% 0.04 258); border-radius: 9px; padding: 12px 16px; font-size: 0.84rem; color: var(--accent-ink); margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+  .pg-spinner { width: 16px; height: 16px; border: 2px solid oklch(85% 0.05 258); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+  .pg-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 500; display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
+  .pg-lightbox img { max-width: 95vw; max-height: 95vh; object-fit: contain; border-radius: 6px; }
+
+  /* ── PHOTO COUNT PILL on site doc cards ── */
+  .photo-count-pill { display: inline-flex; align-items: center; gap: 5px; background: oklch(96% 0.05 25); color: oklch(46% 0.18 25); border: 1px solid oklch(87% 0.08 25); border-radius: 999px; padding: 2px 9px; font-size: 0.74rem; font-weight: 600; font-family: var(--mono); }
+
   /* ── AUTH OVERLAY ── */
   .auth-overlay { position: fixed; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; padding: 24px;
     background: radial-gradient(1200px 600px at 80% -10%, oklch(96% 0.03 258) 0%, transparent 60%),
@@ -474,6 +531,8 @@
     <symbol id="icon-camera" viewBox="0 0 24 24" fill="none"><path d="M3 8a2 2 0 0 1 2-2h2.5l1.5-2h6l1.5 2H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5" stroke="currentColor" stroke-width="1.8"/></symbol>
     <symbol id="icon-grid" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="13" y="4" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="4" y="13" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="13" y="13" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.8"/></symbol>
     <symbol id="icon-pulse" viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-6 4 12 2-6h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-chevron-down" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-photo" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><circle cx="8.5" cy="10.5" r="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M3 16l5-5 4 4 3-3 6 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   </defs>
 </svg>
 
@@ -706,9 +765,16 @@
   <div class="tab-panel active" id="tabDocs">
     <div class="doc-section-head">
       <h3>Paperwork <span class="count" id="docTotalCount"></span></h3>
+      <div class="doc-folder-search">
+        <svg><use href="#icon-search"/></svg>
+        <input type="text" id="docFolderSearch" placeholder="Search documents in this folder…" oninput="filterFolderDocs(this.value)">
+      </div>
     </div>
     <div class="doc-type-grid" id="docTypeGrid">
-      <!-- 4 doc-type cards rendered here -->
+      <!-- scoping, jobcard, storeman rendered here (job-level) -->
+    </div>
+    <div class="sites-section" id="sitesList">
+      <!-- site sections rendered by JS -->
     </div>
   </div>
 
@@ -951,6 +1017,28 @@
       <div class="twk-swatches" id="twkAccent"></div>
     </div>
     <button class="twk-reset" onclick="resetTweaks()">Reset to defaults</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     PHOTO GALLERY MODAL
+     ════════════════════════════════════════════════════════════════════ -->
+<div class="modal-bg" id="photoGalleryModal">
+  <div class="modal pg-modal">
+    <div class="modal-head">
+      <h3><svg style="width:18px;height:18px;vertical-align:-3px;margin-right:6px;"><use href="#icon-photo"/></svg>Photos — <span id="pgSiteName">Site</span></h3>
+      <button class="modal-close" onclick="closePhotoGallery()"><svg><use href="#icon-x"/></svg></button>
+    </div>
+    <div class="modal-body" id="pgBody" style="max-height:65vh;overflow-y:auto;">
+      <div class="pg-empty"><svg><use href="#icon-photo"/></svg>No photos yet</div>
+    </div>
+    <div class="modal-foot">
+      <label class="btn btn-secondary" style="cursor:pointer;">
+        <svg><use href="#icon-plus"/></svg> Add Photos
+        <input type="file" id="pgFileInput" accept="image/*" multiple style="display:none" onchange="onPhotoFilesSelected(this.files)">
+      </label>
+      <button class="btn btn-ghost" onclick="closePhotoGallery()">Done</button>
+    </div>
   </div>
 </div>
 
@@ -1280,6 +1368,33 @@ async function logActivity(job_id, action, summary, doc_id=null) {
   await sb.from('activity_log').insert({ job_id, doc_id, action, summary, actor_name: currentUser.name });
 }
 
+/* ═══════════════ SAVE_PDF HANDLER ═══════════════ */
+window.addEventListener('message', async e => {
+  if (!e.data || e.data.type !== 'SAVE_PDF') return;
+  const { docId, pdfDataUri, formPayload, fileName } = e.data;
+  if (!docId || !pdfDataUri || !activeJobId) return;
+  try {
+    const blob = await (await fetch(pdfDataUri)).blob();
+    const safeName = (fileName || 'document.pdf').replace(/[^a-z0-9._-]/gi, '_');
+    const path = `${activeJobId}/${docId}/${safeName}`;
+    const { error: upErr } = await sb.storage.from('job-pdfs').upload(path, blob, { contentType: 'application/pdf', upsert: true });
+    if (upErr) { console.error('PDF upload:', upErr); toast('PDF upload failed', 'danger'); return; }
+    const { data: urlData } = sb.storage.from('job-pdfs').getPublicUrl(path);
+    await sb.from('documents').update({
+      pdf_url: urlData.publicUrl,
+      payload: formPayload || null,
+      updated_by_name: currentUser?.name || 'Unknown',
+      updated_at: new Date().toISOString()
+    }).eq('id', docId);
+    await logActivity(activeJobId, 'doc_updated', `${currentUser?.name || 'User'} submitted a PDF`);
+    await sb.from('jobs').update({ updated_by_name: currentUser?.name || 'Unknown' }).eq('id', activeJobId);
+    toast('PDF saved to job folder', 'success');
+  } catch (err) {
+    console.error('SAVE_PDF handler error:', err);
+    toast('PDF save error: ' + (err.message || err), 'danger');
+  }
+});
+
 /* ═══════════════ STATE ═══════════════ */
 let activeFilter = 'all';
 let activeDocFilter = 'any';
@@ -1288,6 +1403,9 @@ let activeJobId = null;
 let activeDocId = null;
 let activeDocType = null;
 let editingJobId = null; // null = creating; otherwise editing
+let jobSites = []; // sites loaded for current open job
+let photoGallerySiteId = null; // site whose gallery is open
+const _pgMetaTimers = {}; // debounce timers for photo meta saves
 
 /* ═══════════════ JOB LIBRARY ═══════════════ */
 async function renderJobLibrary() {
@@ -1711,44 +1829,29 @@ async function openJob(jobId) {
   document.getElementById('folderUpdated').textContent = relTime(job.updated_at);
   document.getElementById('folderCreatedBy').textContent = job.created_by_name || '—';
 
-  const { data: docs = [] } = await sb.from('documents').select('*').eq('job_id', jobId);
+  const [{ data: docs = [] }, { data: sitesData = [] }] = await Promise.all([
+    sb.from('documents').select('*').eq('job_id', jobId),
+    sb.from('sites').select('*').eq('job_id', jobId).order('sort_order').order('created_at')
+  ]);
+  jobSites = sitesData;
   docs.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
   document.getElementById('folderDocCount').textContent = docs.length;
   document.getElementById('docTotalCount').textContent = docs.length ? `(${docs.length} total)` : '';
+  document.getElementById('docFolderSearch').value = '';
 
+  // Job-level row: scoping, jobcard, storeman (no site)
+  const JOB_LEVEL = ['scoping', 'jobcard', 'storeman'];
   const grid = document.getElementById('docTypeGrid');
-  grid.innerHTML = Object.entries(DOC_TYPES).map(([key, def]) => {
-    const myDocs = docs.filter(d => d.doc_type === key);
-    const itemsHtml = myDocs.length ? `
-      <div class="doc-list">
-        ${myDocs.map(d => `
-          <div class="doc-item">
-            <div style="flex:1;cursor:pointer;display:flex;align-items:center;gap:10px;" onclick="openDoc('${d.id}')">
-              <div class="doc-name">${esc(d.title || def.label)}</div>
-            </div>
-            <div class="doc-meta" onclick="openDoc('${d.id}')" style="cursor:pointer;">
-              <span class="by">${esc(d.updated_by_name || d.created_by_name)}</span><br>
-              ${relTime(d.updated_at)}
-            </div>
-            <button class="btn btn-ghost btn-sm" style="padding:4px 8px;color:var(--danger);" title="Delete" onclick="event.stopPropagation();deleteDocFromFolder('${d.id}')">${ICO('icon-trash')}</button>
-          </div>`).join('')}
-      </div>` : `<div class="doc-empty">No ${def.label.toLowerCase()} yet</div>`;
-
-    return `
-      <div class="doc-type-card ${def.cls}">
-        <div class="head">
-          <div class="badge">${ICO(def.icon)}</div>
-          <div class="title-block">
-            <div class="name">${def.label}</div>
-            <div class="desc">${def.desc}</div>
-          </div>
-        </div>
-        ${itemsHtml}
-        <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;" onclick="createDoc('${key}')">
-          ${ICO('icon-plus')} New ${def.label}
-        </button>
-      </div>`;
+  grid.innerHTML = JOB_LEVEL.map(key => {
+    const def = DOC_TYPES[key];
+    const myDocs = docs.filter(d => d.doc_type === key && !d.site_id);
+    return renderDocTypeCard(key, def, myDocs, null);
   }).join('');
+
+  // Sites section: per-site Forms + Photos
+  renderSitesInFolder(sitesData, docs);
+  // Load photo counts async after render
+  loadPhotoCountsForSites(sitesData);
 
   // Activity tab
   const { data: activity = [] } = await sb.from('activity_log').select('*').eq('job_id', jobId).order('at', { ascending: false });
@@ -1831,13 +1934,16 @@ document.querySelectorAll('.tab').forEach(t => {
 });
 
 /* ═══════════════ DOCUMENT CREATE / OPEN ═══════════════ */
-async function createDoc(type) {
+async function createDoc(type, siteId = null) {
   const { data: job } = await sb.from('jobs').select('wo_number').eq('id', activeJobId).single();
   const def = DOC_TYPES[type];
+  const site = siteId ? jobSites.find(s => s.id === siteId) : null;
+  const titleSuffix = site ? ` — ${site.name}` : '';
   const { data: doc, error } = await sb.from('documents').insert({
     job_id:          activeJobId,
     doc_type:        type,
-    title:           `${def.label} — ${job.wo_number}`,
+    site_id:         siteId || null,
+    title:           `${def.label} — ${job.wo_number}${titleSuffix}`,
     created_by_name: currentUser.name,
     updated_by_name: currentUser.name,
     created_by:      currentUser.id,
@@ -1887,40 +1993,40 @@ async function openDoc(docId) {
   const frame = document.getElementById('docFrame');
   const loading = document.getElementById('docLoading');
 
-  // The injected bridge in each app posts EMBED_READY when it's listening.
+  // Build the full job context payload once for reuse
+  const jobCtx = {
+    type:             'JOB_CONTEXT',
+    wo:               job.wo_number,
+    name:             job.job_name,
+    address:          job.address,
+    jobType:          job.job_type,
+    cae:              job.cae_number,
+    je:               job.je_number,
+    description:      job.description,
+    first_responder:  job.first_responder,
+    second_responder: job.second_responder,
+    downer_wo_number: job.downer_wo_number,
+    ele_number:       job.ele_number,
+    downer_pm:        job.downer_pm,
+    powerco_pm:       job.powerco_pm,
+    docId:            doc.id,
+    siteId:           doc.site_id || null,
+    userName:         currentUser.name
+  };
+
   const onReady = (e) => {
     if (!e.data || e.data.type !== 'EMBED_READY') return;
     if (e.source !== frame.contentWindow) return;
     window.removeEventListener('message', onReady);
-    // Send the job context so the app pre-fills WO/Name/Address/Type
-    frame.contentWindow.postMessage({
-      type: 'JOB_CONTEXT',
-      wo:      job.wo_number,
-      name:    job.job_name,
-      address: job.address,
-      jobType: job.job_type,
-      cae:     job.cae_number
-    }, '*');
+    frame.contentWindow.postMessage(jobCtx, '*');
   };
   window.addEventListener('message', onReady);
 
   frame.addEventListener('load', () => {
-    // Hide spinner, fade in the iframe via the .ready class (smoother than display swap)
     loading.style.display = 'none';
     frame.classList.add('ready');
-    // Fallback: if EMBED_READY didn't fire (e.g. snippet not present), still
-    // try posting after load. The app will ignore unknown messages.
     setTimeout(() => {
-      try {
-        frame.contentWindow.postMessage({
-          type: 'JOB_CONTEXT',
-          wo:      job.wo_number,
-          name:    job.job_name,
-          address: job.address,
-          jobType: job.job_type,
-          cae:     job.cae_number
-        }, '*');
-      } catch (e) { /* cross-origin — won't happen for same-origin files */ }
+      try { frame.contentWindow.postMessage(jobCtx, '*'); } catch (e) {}
     }, 200);
   });
 
@@ -1953,6 +2059,311 @@ async function deleteDocFromFolder(docId) {
     await logActivity(doc.job_id, 'doc_deleted', `${currentUser.name} deleted a ${DOC_TYPES[doc.doc_type].label}`, doc.id);
     toast(`${DOC_TYPES[doc.doc_type].label} deleted`, 'danger');
     openJob(activeJobId);
+  });
+}
+
+/* ═══════════════ SHARED DOC CARD RENDERER ═══════════════ */
+function renderDocTypeCard(key, def, myDocs, siteId) {
+  const itemsHtml = myDocs.length ? `
+    <div class="doc-list">
+      ${myDocs.map(d => `
+        <div class="doc-item" data-search="${esc((d.title||def.label)+' '+(d.updated_by_name||d.created_by_name||'')).toLowerCase()}">
+          <div style="flex:1;cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="openDoc('${d.id}')">
+            <div class="doc-name">${esc(d.title || def.label)}</div>
+            ${d.pdf_url ? `<a class="pdf-badge" href="${esc(d.pdf_url)}" target="_blank" onclick="event.stopPropagation()" title="View PDF">PDF</a>` : ''}
+          </div>
+          <div class="doc-meta" onclick="openDoc('${d.id}')" style="cursor:pointer;">
+            <span class="by">${esc(d.updated_by_name || d.created_by_name || '—')}</span><br>
+            ${relTime(d.updated_at)}
+          </div>
+          <button class="btn btn-ghost btn-sm" style="padding:4px 8px;color:var(--danger);" title="Delete"
+                  onclick="event.stopPropagation();deleteDocFromFolder('${d.id}')">${ICO('icon-trash')}</button>
+        </div>`).join('')}
+    </div>` : `<div class="doc-empty">No ${def.label.toLowerCase()} yet</div>`;
+
+  const createFn = siteId ? `createDoc('${key}','${siteId}')` : `createDoc('${key}')`;
+  return `
+    <div class="doc-type-card ${def.cls}">
+      <div class="head">
+        <div class="badge">${ICO(def.icon)}</div>
+        <div class="title-block">
+          <div class="name">${def.label}</div>
+          <div class="desc">${def.desc}</div>
+        </div>
+      </div>
+      ${itemsHtml}
+      <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;margin-top:auto;" onclick="${createFn}">
+        ${ICO('icon-plus')} New ${def.label}
+      </button>
+    </div>`;
+}
+
+/* ═══════════════ SITES IN FOLDER ═══════════════ */
+function renderSitesInFolder(sites, docs) {
+  const container = document.getElementById('sitesList');
+  if (!container) return;
+
+  const sitesHtml = sites.map(site => {
+    const siteDocs = docs.filter(d => d.site_id === site.id);
+
+    // Forms card (asbuilt)
+    const formsDef = DOC_TYPES.asbuilt;
+    const formsDocs = siteDocs.filter(d => d.doc_type === 'asbuilt');
+    const formsCard = renderDocTypeCard('asbuilt', formsDef, formsDocs, site.id);
+
+    // Photos card (special — opens gallery)
+    const photosCard = renderSitePhotosCard(site);
+
+    return `
+      <div class="site-block" id="site-block-${site.id}">
+        <div class="site-header">
+          <svg class="site-chevron" onclick="toggleSite('${site.id}')" style="cursor:pointer;"><use href="#icon-chevron-down"/></svg>
+          <input class="site-name-input" value="${esc(site.name)}"
+                 placeholder="Site name"
+                 onblur="renameSite('${site.id}', this.value)"
+                 onkeydown="if(event.key==='Enter')this.blur()">
+          <div class="site-header-btns">
+            <button class="btn btn-ghost btn-sm" style="padding:5px 8px;color:var(--danger);" title="Delete site"
+                    onclick="deleteSiteConfirm('${site.id}')">${ICO('icon-trash')}</button>
+          </div>
+        </div>
+        <div class="site-body" id="site-body-${site.id}">
+          <div class="site-doc-grid">
+            ${formsCard}
+            ${photosCard}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  container.innerHTML = (sites.length ? `
+    <div class="sites-divider"><span>Sites</span></div>
+    ${sitesHtml}` : '') + `
+    <button class="add-site-btn" onclick="addSite()">
+      ${ICO('icon-plus')} Add Site
+    </button>`;
+}
+
+function renderSitePhotosCard(site) {
+  return `
+    <div class="doc-type-card photos" id="photos-card-${site.id}">
+      <div class="head">
+        <div class="badge">${ICO('icon-camera')}</div>
+        <div class="title-block">
+          <div class="name">Photos</div>
+          <div class="desc">Site photos &amp; media</div>
+        </div>
+      </div>
+      <div class="doc-empty" id="photos-count-${site.id}" style="flex:1;">Loading…</div>
+      <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;margin-top:auto;"
+              onclick="openPhotoGallery('${site.id}')">
+        ${ICO('icon-camera')} View / Add Photos
+      </button>
+    </div>`;
+}
+
+async function loadPhotoCountsForSites(sites) {
+  if (!sites.length) return;
+  await Promise.all(sites.map(async site => {
+    const { count } = await sb.from('site_photos')
+      .select('id', { count: 'exact', head: true }).eq('site_id', site.id);
+    const el = document.getElementById(`photos-count-${site.id}`);
+    if (el) el.innerHTML = count
+      ? `<span class="photo-count-pill">${ICO('icon-camera')} ${count} photo${count===1?'':'s'}</span>`
+      : `<div class="doc-empty" style="flex:1;">No photos yet</div>`;
+  }));
+}
+
+/* ── Site toggle (expand/collapse) ── */
+function toggleSite(siteId) {
+  const block = document.getElementById('site-block-' + siteId);
+  if (block) block.classList.toggle('collapsed');
+}
+
+/* ── Add site ── */
+async function addSite() {
+  const name = `Site ${jobSites.length + 1}`;
+  const { data: site, error } = await sb.from('sites').insert({
+    job_id:          activeJobId,
+    name,
+    sort_order:      jobSites.length,
+    created_by:      currentUser.id,
+    created_by_name: currentUser.name
+  }).select().single();
+  if (error) { toast('Could not add site', 'danger'); return; }
+  jobSites.push(site);
+  await logActivity(activeJobId, 'job_updated', `${currentUser.name} added site "${name}"`);
+  await sb.from('jobs').update({ updated_by_name: currentUser.name }).eq('id', activeJobId);
+  toast(`${name} added`, 'success');
+  openJob(activeJobId);
+}
+
+/* ── Rename site ── */
+async function renameSite(siteId, newName) {
+  const trimmed = (newName || '').trim();
+  const site = jobSites.find(s => s.id === siteId);
+  if (!trimmed || trimmed === site?.name) return;
+  await sb.from('sites').update({ name: trimmed }).eq('id', siteId);
+  if (site) site.name = trimmed;
+}
+
+/* ── Delete site ── */
+function deleteSiteConfirm(siteId) {
+  const site = jobSites.find(s => s.id === siteId);
+  showConfirm(
+    'Delete site?',
+    `"${site?.name || 'This site'}" and all its documents and photos will be permanently deleted.`,
+    () => deleteSite(siteId)
+  );
+}
+
+async function deleteSite(siteId) {
+  await sb.from('documents').delete().eq('site_id', siteId);
+  // Delete photos from storage
+  const { data: photos = [] } = await sb.from('site_photos').select('storage_path').eq('site_id', siteId);
+  if (photos.length) {
+    await sb.storage.from('site-photos').remove(photos.map(p => p.storage_path));
+    await sb.from('site_photos').delete().eq('site_id', siteId);
+  }
+  await sb.from('sites').delete().eq('id', siteId);
+  jobSites = jobSites.filter(s => s.id !== siteId);
+  await logActivity(activeJobId, 'job_updated', `${currentUser.name} deleted a site`);
+  toast('Site deleted', 'danger');
+  openJob(activeJobId);
+}
+
+/* ═══════════════ PHOTO GALLERY ═══════════════ */
+async function openPhotoGallery(siteId) {
+  photoGallerySiteId = siteId;
+  const site = jobSites.find(s => s.id === siteId);
+  document.getElementById('pgSiteName').textContent = site?.name || 'Site';
+  document.getElementById('pgFileInput').value = '';
+  await renderPhotoGallery();
+  document.getElementById('photoGalleryModal').classList.add('show');
+}
+
+function closePhotoGallery() {
+  document.getElementById('photoGalleryModal').classList.remove('show');
+  // Refresh photo counts in folder view
+  loadPhotoCountsForSites(jobSites);
+}
+
+async function renderPhotoGallery() {
+  const body = document.getElementById('pgBody');
+  body.innerHTML = '<div class="pg-empty"><div class="pg-spinner"></div><span style="margin-left:8px">Loading…</span></div>';
+  const { data: photos = [] } = await sb.from('site_photos').select('*')
+    .eq('site_id', photoGallerySiteId).order('sort_order').order('created_at');
+  if (!photos.length) {
+    body.innerHTML = `<div class="pg-empty">${ICO('icon-photo')}<p>No photos yet.<br>Click "Add Photos" to upload.</p></div>`;
+    return;
+  }
+  body.innerHTML = `
+    <div class="pg-grid">
+      ${photos.map((p, i) => `
+        <div class="pg-card">
+          <div class="pg-img-wrap">
+            <img src="${esc(p.public_url)}" alt="${esc(p.caption||'Photo')}" onclick="pgLightbox('${esc(p.public_url)}')">
+            <button class="pg-del" onclick="deletePhoto('${p.id}')" title="Delete photo">${ICO('icon-trash')}</button>
+          </div>
+          <div class="pg-meta">
+            <input class="pg-caption" placeholder="Caption / name" value="${esc(p.caption)}" maxlength="120"
+                   oninput="pgMetaDebounce('${p.id}', this, null)">
+            <textarea class="pg-notes" placeholder="Notes (optional)" maxlength="500"
+                      oninput="pgMetaDebounce('${p.id}', null, this)">${esc(p.notes)}</textarea>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function pgLightbox(url) {
+  const lb = document.createElement('div');
+  lb.className = 'pg-lightbox';
+  lb.innerHTML = `<img src="${esc(url)}" alt="Photo">`;
+  lb.onclick = () => lb.remove();
+  document.body.appendChild(lb);
+}
+
+async function onPhotoFilesSelected(files) {
+  if (!files || !files.length || !photoGallerySiteId) return;
+  const body = document.getElementById('pgBody');
+  const prog = document.createElement('div');
+  prog.className = 'pg-upload-progress';
+  prog.innerHTML = `<div class="pg-spinner"></div><span>Uploading ${files.length} photo${files.length>1?'s':''}…</span>`;
+  body.prepend(prog);
+
+  const sortBase = Date.now();
+  for (let i = 0; i < files.length; i++) {
+    try {
+      const resized = await resizeImageForUpload(files[i], 1400);
+      const ext = files[i].name.split('.').pop().toLowerCase() || 'jpg';
+      const path = `${activeJobId}/${photoGallerySiteId}/${sortBase}_${i}.jpg`;
+      const { error: upErr } = await sb.storage.from('site-photos').upload(path, resized, { contentType: 'image/jpeg', upsert: true });
+      if (upErr) { console.error('photo upload:', upErr); continue; }
+      const { data: urlData } = sb.storage.from('site-photos').getPublicUrl(path);
+      await sb.from('site_photos').insert({
+        job_id:          activeJobId,
+        site_id:         photoGallerySiteId,
+        storage_path:    path,
+        public_url:      urlData.publicUrl,
+        sort_order:      i,
+        created_by_name: currentUser.name
+      });
+    } catch (err) { console.error('photo upload error:', err); }
+  }
+  prog.remove();
+  document.getElementById('pgFileInput').value = '';
+  await renderPhotoGallery();
+  await logActivity(activeJobId, 'doc_updated', `${currentUser.name} added ${files.length} photo${files.length>1?'s':''}`);
+  toast(`${files.length} photo${files.length>1?'s':''} uploaded`, 'success');
+}
+
+async function resizeImageForUpload(file, maxPx) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      c.toBlob(b => b ? resolve(b) : reject(new Error('canvas toBlob failed')), 'image/jpeg', 0.85);
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+async function deletePhoto(photoId) {
+  const { data: p } = await sb.from('site_photos').select('storage_path').eq('id', photoId).single();
+  if (p?.storage_path) await sb.storage.from('site-photos').remove([p.storage_path]);
+  await sb.from('site_photos').delete().eq('id', photoId);
+  await renderPhotoGallery();
+  toast('Photo deleted', 'danger');
+}
+
+function pgMetaDebounce(photoId, captionEl, notesEl) {
+  clearTimeout(_pgMetaTimers[photoId]);
+  _pgMetaTimers[photoId] = setTimeout(() => {
+    const card = (captionEl || notesEl).closest('.pg-card');
+    const cap  = card.querySelector('.pg-caption').value;
+    const nts  = card.querySelector('.pg-notes').value;
+    sb.from('site_photos').update({ caption: cap, notes: nts }).eq('id', photoId).then(() => {});
+  }, 600);
+}
+
+/* ═══════════════ DOCUMENT SEARCH IN FOLDER ═══════════════ */
+function filterFolderDocs(q) {
+  const lower = (q || '').toLowerCase().trim();
+  document.querySelectorAll('.doc-item').forEach(item => {
+    const text = item.dataset.search || item.textContent.toLowerCase();
+    item.style.display = (!lower || text.includes(lower)) ? '' : 'none';
+  });
+  // Hide empty doc-type-card groups if all their items are hidden
+  document.querySelectorAll('.doc-list').forEach(list => {
+    const visible = [...list.querySelectorAll('.doc-item')].some(el => el.style.display !== 'none');
+    list.style.display = visible ? '' : 'none';
   });
 }
 
