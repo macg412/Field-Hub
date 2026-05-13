@@ -2358,7 +2358,7 @@ async function onPhotoFilesSelected(files) {
         site_id:         photoGallerySiteId,
         storage_path:    path,
         public_url:      urlData.publicUrl,
-        sort_order:      sortBase + i,
+        sort_order:      i,
         created_by_name: currentUser.name
       });
       if (insErr) {
