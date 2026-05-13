@@ -2346,7 +2346,7 @@ async function onPhotoFilesSelected(files) {
     try {
       const resized = await resizeImageForUpload(fileArr[i], 1400);
       const path = `${activeJobId}/${photoGallerySiteId}/${sortBase}_${i}.jpg`;
-      const { error: upErr } = await sb.storage.from('site-photos').upload(path, resized, { contentType: 'image/jpeg', upsert: true });
+      const { error: upErr } = await sb.storage.from('site-photos').upload(path, resized, { contentType: 'image/jpeg' });
       if (upErr) {
         console.error('photo upload storage error:', upErr);
         toast(`Upload failed: ${upErr.message}`, 'danger');
