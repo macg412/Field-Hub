@@ -378,8 +378,6 @@
     .page-head h1 { font-size: 1.5rem; }
     .folder-title-block h2 { font-size: 1.5rem; }
     .folder-hero { padding: 16px 18px; }
-    .doc-filter-row { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; }
-    .doc-filter-row .filter-chip { white-space: nowrap; flex-shrink: 0; }
     #sortPicker, #missingPicker { display: none; }
   }
   @media (max-width: 480px) {
@@ -387,6 +385,9 @@
     .modal-bg { padding: 0; align-items: flex-end; }
     .modal { max-width: 100% !important; max-height: 92vh; border-radius: var(--r-lg) var(--r-lg) 0 0; }
     .doc-host iframe { height: calc(100vh - 180px); min-height: 420px; }
+    /* Portrait phone: doc-pills move below job info instead of squishing it */
+    .job-row { grid-template-columns: 44px 1fr; }
+    .doc-pills { grid-column: 2; margin-top: 6px; }
   }
 
   /* ── DOC FOLDER SEARCH ── */
@@ -759,6 +760,7 @@
     <button class="tab active" data-tab="docs">Documents</button>
     <button class="tab" data-tab="activity">Activity</button>
     <button class="tab" data-tab="details">Details</button>
+    <button class="btn btn-sm" id="deleteFolderBtn" style="display:none;margin-left:auto;color:var(--danger);background:transparent;border:1px solid oklch(90% 0.05 27);border-radius:8px;padding:6px 12px;font-size:0.78rem;" onclick="deleteJob()"><svg style="width:13px;height:13px;vertical-align:-2px"><use href="#icon-trash"/></svg> Delete folder</button>
   </div>
 
   <!-- DOCUMENTS TAB -->
@@ -1867,7 +1869,51 @@ async function openJob(jobId) {
   // Details tab
   _renderDetailsTab(job);
 
+  // Admin-only delete button
+  document.getElementById('deleteFolderBtn').style.display = currentUser?.isAdmin ? 'inline-flex' : 'none';
+
   showScreen('screenFolder');
+}
+
+async function deleteJob() {
+  if (!activeJobId) return;
+  showConfirm(
+    'Delete job folder?',
+    'This permanently deletes the job folder, all documents, sites, photos, and activity. This cannot be undone.',
+    async () => {
+      try {
+        // Remove PDF files from storage
+        const { data: docs = [] } = await sb.from('documents').select('id, pdf_url').eq('job_id', activeJobId);
+        const pdfPaths = docs.filter(d => d.pdf_url).map(d => {
+          try { return new URL(d.pdf_url).pathname.replace(/^\/storage\/v1\/object\/public\/job-pdfs\//, ''); } catch { return null; }
+        }).filter(Boolean);
+        if (pdfPaths.length) await sb.storage.from('job-pdfs').remove(pdfPaths);
+
+        // Remove site photos from storage and DB
+        const { data: sites = [] } = await sb.from('sites').select('id').eq('job_id', activeJobId);
+        for (const site of sites) {
+          const { data: photos = [] } = await sb.from('site_photos').select('storage_path').eq('site_id', site.id);
+          const photoPaths = photos.map(p => p.storage_path).filter(Boolean);
+          if (photoPaths.length) await sb.storage.from('site-photos').remove(photoPaths);
+          await sb.from('site_photos').delete().eq('site_id', site.id);
+        }
+
+        // Delete DB records
+        await sb.from('sites').delete().eq('job_id', activeJobId);
+        await sb.from('documents').delete().eq('job_id', activeJobId);
+        await sb.from('activity_log').delete().eq('job_id', activeJobId);
+        await sb.from('jobs').delete().eq('id', activeJobId);
+
+        toast('Job folder deleted', 'danger');
+        activeJobId = null;
+        goLibrary();
+        renderJobLibrary();
+      } catch (err) {
+        console.error('deleteJob error:', err);
+        toast('Delete failed: ' + (err.message || err), 'danger');
+      }
+    }
+  );
 }
 
 function _renderDetailsTab(job) {
