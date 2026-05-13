@@ -2331,36 +2331,54 @@ function pgLightbox(url) {
 
 async function onPhotoFilesSelected(files) {
   if (!files || !files.length || !photoGallerySiteId) return;
+  const total = files.length; // capture before any async clears the FileList
+  // snapshot files into an array so they remain accessible after input reset
+  const fileArr = Array.from(files);
   const body = document.getElementById('pgBody');
   const prog = document.createElement('div');
   prog.className = 'pg-upload-progress';
-  prog.innerHTML = `<div class="pg-spinner"></div><span>Uploading ${files.length} photo${files.length>1?'s':''}…</span>`;
+  prog.innerHTML = `<div class="pg-spinner"></div><span>Uploading ${total} photo${total>1?'s':''}…</span>`;
   body.prepend(prog);
 
   const sortBase = Date.now();
-  for (let i = 0; i < files.length; i++) {
+  let successCount = 0;
+  for (let i = 0; i < fileArr.length; i++) {
     try {
-      const resized = await resizeImageForUpload(files[i], 1400);
-      const ext = files[i].name.split('.').pop().toLowerCase() || 'jpg';
+      const resized = await resizeImageForUpload(fileArr[i], 1400);
       const path = `${activeJobId}/${photoGallerySiteId}/${sortBase}_${i}.jpg`;
       const { error: upErr } = await sb.storage.from('site-photos').upload(path, resized, { contentType: 'image/jpeg', upsert: true });
-      if (upErr) { console.error('photo upload:', upErr); continue; }
+      if (upErr) {
+        console.error('photo upload storage error:', upErr);
+        toast(`Upload failed: ${upErr.message}`, 'danger');
+        continue;
+      }
       const { data: urlData } = sb.storage.from('site-photos').getPublicUrl(path);
-      await sb.from('site_photos').insert({
+      const { error: insErr } = await sb.from('site_photos').insert({
         job_id:          activeJobId,
         site_id:         photoGallerySiteId,
         storage_path:    path,
         public_url:      urlData.publicUrl,
-        sort_order:      i,
+        sort_order:      sortBase + i,
         created_by_name: currentUser.name
       });
-    } catch (err) { console.error('photo upload error:', err); }
+      if (insErr) {
+        console.error('photo insert error:', insErr);
+        toast(`Save failed: ${insErr.message}`, 'danger');
+        continue;
+      }
+      successCount++;
+    } catch (err) {
+      console.error('photo upload error:', err);
+      toast(`Photo error: ${err.message}`, 'danger');
+    }
   }
   prog.remove();
   document.getElementById('pgFileInput').value = '';
   await renderPhotoGallery();
-  await logActivity(activeJobId, 'doc_updated', `${currentUser.name} added ${files.length} photo${files.length>1?'s':''}`);
-  toast(`${files.length} photo${files.length>1?'s':''} uploaded`, 'success');
+  if (successCount > 0) {
+    await logActivity(activeJobId, 'doc_updated', `${currentUser.name} added ${successCount} photo${successCount>1?'s':''}`);
+    toast(`${successCount} photo${successCount>1?'s':''} uploaded`, 'success');
+  }
 }
 
 async function resizeImageForUpload(file, maxPx) {
