@@ -1370,6 +1370,20 @@ async function logActivity(job_id, action, summary, doc_id=null) {
   await sb.from('activity_log').insert({ job_id, doc_id, action, summary, actor_name: currentUser.name });
 }
 
+/* ═══════════════ DRAFT_SAVE HANDLER ═══════════════ */
+window.addEventListener('message', async e => {
+  if (!e.data || e.data.type !== 'DRAFT_SAVE') return;
+  const { docId, payload } = e.data;
+  if (!docId) return;
+  try {
+    await sb.from('documents').update({
+      payload: payload || null,
+      updated_by_name: currentUser?.name || 'Unknown',
+      updated_at: new Date().toISOString(),
+    }).eq('id', docId);
+  } catch (err) { console.error('DRAFT_SAVE error:', err); }
+});
+
 /* ═══════════════ SAVE_PDF HANDLER ═══════════════ */
 window.addEventListener('message', async e => {
   if (!e.data || e.data.type !== 'SAVE_PDF') return;
@@ -2105,7 +2119,8 @@ async function openDoc(docId) {
     docId:            doc.id,
     siteId:           doc.site_id || null,
     siteName:         doc.site_id ? (jobSites.find(s => s.id === doc.site_id)?.name || '') : '',
-    userName:         currentUser.name
+    userName:         currentUser.name,
+    payload:          doc.payload || null,
   };
 
   const onReady = (e) => {
