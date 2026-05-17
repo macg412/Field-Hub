@@ -243,7 +243,7 @@
   .doc-section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
   .doc-section-head h3 { font-size: 0.92rem; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; font-family: var(--mono); text-transform: uppercase; }
   .doc-section-head .count { color: var(--ink-4); margin-left: 8px; font-weight: 500; }
-  .doc-type-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 32px; }
+  .doc-type-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 14px; margin-bottom: 32px; }
   .doc-type-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 18px; box-shadow: var(--sh-1); display: flex; flex-direction: column; transition: all 0.14s; }
   .doc-type-card:hover { border-color: var(--line-strong); box-shadow: var(--sh-2); }
   .doc-type-card .head { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 14px; text-align: center; }
@@ -263,11 +263,20 @@
   .doc-type-card .name { font-size: 0.96rem; font-weight: 600; color: var(--ink); letter-spacing: -0.012em; }
   .doc-type-card .desc { font-size: 0.78rem; color: var(--ink-4); margin-top: 2px; }
   .doc-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; flex: 1; }
-  .doc-item { display: flex; align-items: center; gap: 12px; padding: 11px 13px; background: var(--bg-elev); border-radius: 9px; border: 1px solid transparent; cursor: pointer; transition: all 0.12s; }
+  .doc-item { display: flex; flex-direction: column; gap: 5px; padding: 10px 12px; background: var(--bg-elev); border-radius: 9px; border: 1px solid transparent; transition: all 0.12s; overflow: hidden; }
   .doc-item:hover { border-color: var(--line-2); background: var(--surface); box-shadow: var(--sh-1); }
-  .doc-item .doc-name { flex: 1; font-size: 0.86rem; font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .doc-item .doc-meta { font-size: 0.7rem; color: var(--ink-4); text-align: right; line-height: 1.4; flex-shrink: 0; }
-  .doc-item .doc-meta .by { color: var(--ink-2); font-weight: 600; }
+  .doc-item .doc-name { font-size: 0.86rem; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; text-decoration: none; display: block; }
+  .doc-item .doc-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .doc-item .doc-row-meta { flex: 1; display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: var(--ink-4); min-width: 0; overflow: hidden; }
+  .doc-item .doc-row-meta .by { color: var(--ink-2); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+  .doc-item .doc-row-meta .sep { opacity: 0.4; flex-shrink: 0; }
+  .doc-item .doc-row-meta .when { white-space: nowrap; flex-shrink: 0; }
+  .doc-action-btn { display: inline-flex; align-items: center; gap: 3px; padding: 5px 9px; border-radius: 7px; font-size: 0.73rem; font-weight: 600; border: 1px solid; cursor: pointer; flex-shrink: 0; transition: all 0.12s; font-family: inherit; line-height: 1; }
+  .doc-action-btn svg { width: 12px; height: 12px; }
+  .doc-action-btn.edit  { background: var(--accent-soft); color: var(--accent-ink); border-color: oklch(84% 0.06 258); }
+  .doc-action-btn.edit:hover  { background: oklch(91% 0.04 258); }
+  .doc-action-btn.danger { background: var(--danger-soft); color: var(--danger); border-color: oklch(88% 0.05 27); }
+  .doc-action-btn.danger:hover { background: oklch(92% 0.03 27); }
   .doc-empty { padding: 16px 14px; text-align: center; font-size: 0.8rem; color: var(--ink-5); background: var(--bg-elev); border-radius: 9px; border: 1px dashed var(--line-2); flex: 1; display: grid; place-items: center; }
 
   /* ── PROTO BANNER ── */
@@ -2177,30 +2186,29 @@ function renderDocTypeCard(key, def, myDocs, siteId) {
     <div class="doc-list">
       ${myDocs.map(d => d.pdf_url ? `
         <div class="doc-item" data-search="${esc((d.title||def.label)+' '+(d.updated_by_name||d.created_by_name||'')).toLowerCase()}">
-          <a style="flex:1;display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit;cursor:pointer;" href="${esc(d.pdf_url)}" target="_blank">
-            <div class="doc-name">${esc(d.title || def.label)}</div>
-            <span class="pdf-badge">PDF</span>
-          </a>
-          <div class="doc-meta">
-            <span class="by">${esc(d.updated_by_name || d.created_by_name || '—')}</span><br>
-            ${relTime(d.updated_at)}
+          <a class="doc-name" href="${esc(d.pdf_url)}" target="_blank">${esc(d.title || def.label)}</a>
+          <div class="doc-row">
+            <a href="${esc(d.pdf_url)}" target="_blank" style="text-decoration:none;flex-shrink:0;" onclick="event.stopPropagation()"><span class="pdf-badge">PDF</span></a>
+            <div class="doc-row-meta">
+              <span class="by">${esc(d.updated_by_name || d.created_by_name || '—')}</span>
+              <span class="sep">·</span>
+              <span class="when">${relTime(d.updated_at)}</span>
+            </div>
+            ${['jobcard','storeman'].includes(key) ? `<button class="doc-action-btn edit" title="Edit document" onclick="event.stopPropagation();openDoc('${d.id}')">${ICO('icon-edit')} Edit</button>` : ''}
+            <button class="doc-action-btn danger" title="Delete" onclick="event.stopPropagation();deleteDocFromFolder('${d.id}')">${ICO('icon-trash')}</button>
           </div>
-          ${['jobcard','storeman'].includes(key) ? `<button class="btn btn-ghost btn-sm" style="padding:4px 8px;" title="Edit document"
-                  onclick="event.stopPropagation();openDoc('${d.id}')">${ICO('icon-edit')}</button>` : ''}
-          <button class="btn btn-ghost btn-sm" style="padding:4px 8px;color:var(--danger);" title="Delete"
-                  onclick="event.stopPropagation();deleteDocFromFolder('${d.id}')">${ICO('icon-trash')}</button>
         </div>` : `
-        <div class="doc-item" data-search="${esc((d.title||def.label)+' '+(d.updated_by_name||d.created_by_name||'')).toLowerCase()}">
-          <div style="flex:1;cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="openDoc('${d.id}')">
-            <div class="doc-name">${esc(d.title || def.label)}</div>
-            <span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:var(--warn-soft);color:var(--warn);flex-shrink:0;">DRAFT</span>
+        <div class="doc-item" style="cursor:pointer;" onclick="openDoc('${d.id}')" data-search="${esc((d.title||def.label)+' '+(d.updated_by_name||d.created_by_name||'')).toLowerCase()}">
+          <div class="doc-name">${esc(d.title || def.label)}</div>
+          <div class="doc-row">
+            <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--warn-soft);color:var(--warn);flex-shrink:0;letter-spacing:.03em;">DRAFT</span>
+            <div class="doc-row-meta">
+              <span class="by">${esc(d.updated_by_name || d.created_by_name || '—')}</span>
+              <span class="sep">·</span>
+              <span class="when">${relTime(d.updated_at)}</span>
+            </div>
+            <button class="doc-action-btn danger" title="Delete" onclick="event.stopPropagation();deleteDocFromFolder('${d.id}')">${ICO('icon-trash')}</button>
           </div>
-          <div class="doc-meta" onclick="openDoc('${d.id}')" style="cursor:pointer;">
-            <span class="by">${esc(d.updated_by_name || d.created_by_name || '—')}</span><br>
-            ${relTime(d.updated_at)}
-          </div>
-          <button class="btn btn-ghost btn-sm" style="padding:4px 8px;color:var(--danger);" title="Delete"
-                  onclick="event.stopPropagation();deleteDocFromFolder('${d.id}')">${ICO('icon-trash')}</button>
         </div>`).join('')}
     </div>` : `<div class="doc-empty">No ${def.label.toLowerCase()} yet</div>`;
 
