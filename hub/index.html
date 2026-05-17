@@ -2185,6 +2185,8 @@ function renderDocTypeCard(key, def, myDocs, siteId) {
             <span class="by">${esc(d.updated_by_name || d.created_by_name || '—')}</span><br>
             ${relTime(d.updated_at)}
           </div>
+          ${['jobcard','storeman'].includes(key) ? `<button class="btn btn-ghost btn-sm" style="padding:4px 8px;" title="Edit document"
+                  onclick="event.stopPropagation();openDoc('${d.id}')">${ICO('icon-edit')}</button>` : ''}
           <button class="btn btn-ghost btn-sm" style="padding:4px 8px;color:var(--danger);" title="Delete"
                   onclick="event.stopPropagation();deleteDocFromFolder('${d.id}')">${ICO('icon-trash')}</button>
         </div>` : `
