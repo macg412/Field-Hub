@@ -2098,16 +2098,7 @@ async function openDoc(docId) {
 
   const host = document.getElementById('docHost');
 
-  // FieldForms is a special case — it has its own auth + job model. Show
-  // a banner reminding the user which WO# to use inside FieldForms.
-  const banner = doc.doc_type === 'asbuilt'
-    ? `<div style="padding:14px 14px 0;">
-         <div class="ff-context-banner">
-           <span>ℹ️</span>
-           <div><strong>FieldForms</strong> manages its own job list — when creating or picking a job inside, use WO <code>${esc(job.wo_number)}</code> · <code>${esc(job.job_name)}</code> so it lines up with this folder.</div>
-         </div>
-       </div>`
-    : '';
+  const banner = '';
 
   host.innerHTML = `
     ${banner}
@@ -2207,7 +2198,7 @@ function renderDocTypeCard(key, def, myDocs, siteId) {
               <span class="sep">·</span>
               <span class="when">${relTime(d.updated_at)}</span>
             </div>
-            ${['jobcard','storeman'].includes(key) ? `<button class="doc-action-btn edit" title="Edit document" onclick="event.stopPropagation();openDoc('${d.id}')">${ICO('icon-edit')} Edit</button>` : ''}
+            ${['jobcard','storeman','scoping','asbuilt'].includes(key) ? `<button class="doc-action-btn edit" title="Edit document" onclick="event.stopPropagation();openDoc('${d.id}')">${ICO('icon-edit')} Edit</button>` : ''}
             <button class="doc-action-btn danger" title="Delete" onclick="event.stopPropagation();deleteDocFromFolder('${d.id}')">${ICO('icon-trash')}</button>
           </div>
         </div>` : `
