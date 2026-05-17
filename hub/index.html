@@ -1980,6 +1980,53 @@ document.querySelectorAll('.tab').forEach(t => {
 });
 
 /* ═══════════════ DOCUMENT CREATE / OPEN ═══════════════ */
+async function openFormLibrary(siteId) {
+  const { data: job } = await sb.from('jobs').select('*').eq('id', activeJobId).single();
+  if (!job) return;
+  const site = jobSites.find(s => s.id === siteId);
+
+  const host = document.getElementById('docHost');
+  host.innerHTML = `
+    <div class="doc-host-loading" id="docLoading">
+      <div class="spinner"></div>
+      Opening Form Library…
+    </div>
+    <iframe id="docFrame" src="apps/fieldforms.html"
+            allow="clipboard-write; camera; geolocation"
+            title="Field Forms"></iframe>`;
+
+  const frame = document.getElementById('docFrame');
+  const loading = document.getElementById('docLoading');
+
+  const ctx = {
+    type:     'FORM_REQUEST',
+    wo:       job.wo_number,
+    name:     job.job_name,
+    siteName: site ? site.name : '',
+    siteId:   siteId || null,
+    userName: currentUser.name,
+    isAdmin:  currentUser.is_admin || false,
+  };
+
+  const onReady = (e) => {
+    if (!e.data || e.data.type !== 'EMBED_READY') return;
+    if (e.source !== frame.contentWindow) return;
+    window.removeEventListener('message', onReady);
+    frame.contentWindow.postMessage(ctx, '*');
+  };
+  window.addEventListener('message', onReady);
+
+  frame.addEventListener('load', () => {
+    loading.style.display = 'none';
+    frame.classList.add('ready');
+    setTimeout(() => {
+      try { frame.contentWindow.postMessage(ctx, '*'); } catch(e) {}
+    }, 200);
+  });
+
+  showScreen('screenDoc');
+}
+
 async function createDoc(type, siteId = null) {
   const { data: job } = await sb.from('jobs').select('wo_number').eq('id', activeJobId).single();
   const def = DOC_TYPES[type];
@@ -2041,7 +2088,7 @@ async function openDoc(docId) {
 
   // Build the full job context payload once for reuse
   const jobCtx = {
-    type:             'JOB_CONTEXT',
+    type:             doc.doc_type === 'asbuilt' ? 'FORM_REQUEST' : 'JOB_CONTEXT',
     wo:               job.wo_number,
     name:             job.job_name,
     address:          job.address,
@@ -2057,6 +2104,7 @@ async function openDoc(docId) {
     powerco_pm:       job.powerco_pm,
     docId:            doc.id,
     siteId:           doc.site_id || null,
+    siteName:         doc.site_id ? (jobSites.find(s => s.id === doc.site_id)?.name || '') : '',
     userName:         currentUser.name
   };
 
@@ -2152,10 +2200,8 @@ function renderSitesInFolder(sites, docs) {
   const sitesHtml = sites.map(site => {
     const siteDocs = docs.filter(d => d.site_id === site.id);
 
-    // Forms card (asbuilt)
-    const formsDef = DOC_TYPES.asbuilt;
-    const formsDocs = siteDocs.filter(d => d.doc_type === 'asbuilt');
-    const formsCard = renderDocTypeCard('asbuilt', formsDef, formsDocs, site.id);
+    // Forms card (FieldForms launcher)
+    const formsCard = renderFormsCard(site);
 
     // Photos card (special — opens gallery)
     const photosCard = renderSitePhotosCard(site);
@@ -2188,6 +2234,24 @@ function renderSitesInFolder(sites, docs) {
     <button class="add-site-btn" onclick="addSite()">
       ${ICO('icon-plus')} Add Site
     </button>`;
+}
+
+function renderFormsCard(site) {
+  return `
+    <div class="doc-type-card asbuilt">
+      <div class="head">
+        <div class="badge">${ICO('icon-check')}</div>
+        <div class="title-block">
+          <div class="name">Forms</div>
+          <div class="desc">FieldForms PDF / as-built</div>
+        </div>
+      </div>
+      <div class="doc-empty" style="flex:1;">Tap below to open the form library for this site.</div>
+      <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;margin-top:auto;"
+              onclick="openFormLibrary('${site.id}')">
+        ${ICO('icon-plus')} New Form
+      </button>
+    </div>`;
 }
 
 function renderSitePhotosCard(site) {
