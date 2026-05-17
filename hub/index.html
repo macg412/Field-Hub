@@ -2241,8 +2241,8 @@ function renderSitesInFolder(sites, docs) {
   const sitesHtml = sites.map(site => {
     const siteDocs = docs.filter(d => d.site_id === site.id);
 
-    // Forms card (FieldForms launcher)
-    const formsCard = renderFormsCard(site);
+    // Forms card (FieldForms launcher) — uses createDoc flow so docId is sent
+    const formsCard = renderDocTypeCard('asbuilt', DOC_TYPES.asbuilt, siteDocs.filter(d => d.doc_type === 'asbuilt'), site.id);
 
     // Photos card (special — opens gallery)
     const photosCard = renderSitePhotosCard(site);
