@@ -2160,11 +2160,23 @@ async function deleteDocFromFolder(docId) {
 function renderDocTypeCard(key, def, myDocs, siteId) {
   const itemsHtml = myDocs.length ? `
     <div class="doc-list">
-      ${myDocs.map(d => `
+      ${myDocs.map(d => d.pdf_url ? `
+        <div class="doc-item" data-search="${esc((d.title||def.label)+' '+(d.updated_by_name||d.created_by_name||'')).toLowerCase()}">
+          <a style="flex:1;display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit;cursor:pointer;" href="${esc(d.pdf_url)}" target="_blank">
+            <div class="doc-name">${esc(d.title || def.label)}</div>
+            <span class="pdf-badge">PDF</span>
+          </a>
+          <div class="doc-meta">
+            <span class="by">${esc(d.updated_by_name || d.created_by_name || '—')}</span><br>
+            ${relTime(d.updated_at)}
+          </div>
+          <button class="btn btn-ghost btn-sm" style="padding:4px 8px;color:var(--danger);" title="Delete"
+                  onclick="event.stopPropagation();deleteDocFromFolder('${d.id}')">${ICO('icon-trash')}</button>
+        </div>` : `
         <div class="doc-item" data-search="${esc((d.title||def.label)+' '+(d.updated_by_name||d.created_by_name||'')).toLowerCase()}">
           <div style="flex:1;cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="openDoc('${d.id}')">
             <div class="doc-name">${esc(d.title || def.label)}</div>
-            ${d.pdf_url ? `<a class="pdf-badge" href="${esc(d.pdf_url)}" target="_blank" onclick="event.stopPropagation()" title="View PDF">PDF</a>` : ''}
+            <span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:var(--warn-soft);color:var(--warn);flex-shrink:0;">DRAFT</span>
           </div>
           <div class="doc-meta" onclick="openDoc('${d.id}')" style="cursor:pointer;">
             <span class="by">${esc(d.updated_by_name || d.created_by_name || '—')}</span><br>
