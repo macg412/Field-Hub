@@ -241,6 +241,7 @@
   .doc-type-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 14px; margin-bottom: 32px; }
   .doc-type-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 18px; box-shadow: var(--sh-1); display: flex; flex-direction: column; transition: all 0.14s; }
   .doc-type-card:hover { border-color: var(--line-strong); box-shadow: var(--sh-2); }
+  .doc-type-card.drop-over { border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-soft), var(--sh-2) !important; }
   .doc-type-card .head { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 14px; text-align: center; }
   .doc-type-card .badge { width: 56px; height: 56px; border-radius: 14px; display: grid; place-items: center; flex-shrink: 0; }
   .doc-type-card .badge svg { width: 26px; height: 26px; }
@@ -2189,15 +2190,14 @@ function renderDocTypeCard(key, def, myDocs, siteId, siteName='') {
             <button class="doc-action-btn danger" title="Delete" onclick="event.stopPropagation();deleteDocFromFolder('${d.id}')">${ICO('icon-trash')}</button>
           </div>
         </div>`).join('')}
-    </div>` : `<div class="doc-empty"
-      ondragover="event.preventDefault();event.dataTransfer.dropEffect='copy';this.classList.add('drop-over')"
-      ondragleave="this.classList.remove('drop-over')"
-      ondrop="event.preventDefault();this.classList.remove('drop-over');handleDocPdfDrop(event.dataTransfer.files,'${key}',${siteArg})">
-      No ${def.label.toLowerCase()} yet<br><small style="font-size:0.72rem;opacity:0.65">drop a PDF to upload</small></div>`;
+    </div>` : `<div class="doc-empty">No ${def.label.toLowerCase()} yet<br><small style="font-size:0.72rem;opacity:0.65">drop a PDF anywhere on this card</small></div>`;
 
   const createFn = siteId ? `createDoc('${key}','${siteId}')` : `createDoc('${key}')`;
   return `
-    <div class="doc-type-card ${def.cls}">
+    <div class="doc-type-card ${def.cls}"
+         ondragover="event.preventDefault();event.dataTransfer.dropEffect='copy';this.classList.add('drop-over')"
+         ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('drop-over')"
+         ondrop="event.preventDefault();this.classList.remove('drop-over');handleDocPdfDrop(event.dataTransfer.files,'${key}',${siteArg})">
       <div class="head">
         <div class="badge">${ICO(def.icon)}</div>
         <div class="title-block">
@@ -2294,11 +2294,11 @@ function renderSitePhotosCard(site) {
            ondrop="event.preventDefault();this.classList.remove('drop-over');dropPhotosOnCard('${site.id}',event.dataTransfer.files)">
         Loading…
       </div>
-      <div style="display:flex;gap:6px;margin-top:auto;">
-        <button class="btn btn-secondary btn-sm" style="flex:1;justify-content:center;" onclick="openPhotoGallery('${site.id}')">
-          ${ICO('icon-photo')} Gallery
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:auto;">
+        <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;" onclick="openPhotoGallery('${site.id}')">
+          ${ICO('icon-photo')} View Gallery
         </button>
-        <label class="btn btn-secondary btn-sm" style="flex:1;justify-content:center;cursor:pointer;">
+        <label class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;cursor:pointer;">
           ${ICO('icon-plus')} Add Photos
           <input type="file" accept="image/*" multiple style="display:none" onchange="dropPhotosOnCard('${site.id}',this.files);this.value=''">
         </label>
@@ -2527,14 +2527,11 @@ async function uploadPdfToDoc(key, siteId, file) {
   const def = DOC_TYPES[key];
   toast('Uploading PDF…');
   try {
-    const site = siteId ? jobSites.find(s => s.id === siteId) : null;
-    const titleSuffix = site ? ` — ${site.name}` : '';
-    const { data: job } = await sb.from('jobs').select('wo_number').eq('id', activeJobId).single();
     const { data: doc, error } = await sb.from('documents').insert({
       job_id:          activeJobId,
       doc_type:        key,
       site_id:         siteId || null,
-      title:           `${def.label} — ${job?.wo_number || ''}${titleSuffix}`,
+      title:           file.name.replace(/\.pdf$/i, ''),
       created_by_name: currentUser.name,
       updated_by_name: currentUser.name,
       created_by:      currentUser.id,
