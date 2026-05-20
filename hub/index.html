@@ -1447,10 +1447,15 @@ const _pgMetaTimers = {}; // debounce timers for photo meta saves
 
 /* ═══════════════ JOB LIBRARY ═══════════════ */
 async function renderJobLibrary() {
-  const { data: jobs = [], error } = await sb.from('jobs').select('*, documents(*)');
+  const [{ data: jobs = [], error }, { data: photoRows = [] }] = await Promise.all([
+    sb.from('jobs').select('*, documents(*)'),
+    sb.from('site_photos').select('job_id')
+  ]);
   if (error) console.error('renderJobLibrary:', error);
   const docsByJob = {};
   jobs.forEach(j => { docsByJob[j.id] = j.documents || []; });
+  const photoCountByJob = {};
+  photoRows.forEach(p => { photoCountByJob[p.job_id] = (photoCountByJob[p.job_id] || 0) + 1; });
 
   const q = (document.getElementById('jobSearch').value || '').trim().toLowerCase();
   const sort = document.getElementById('sortPicker').value;
@@ -1461,11 +1466,12 @@ async function renderJobLibrary() {
 
     // Doc-type filter
     const types = new Set((docsByJob[j.id] || []).map(d => d.doc_type));
+    const hasPhotos = (photoCountByJob[j.id] || 0) > 0;
     if (activeDocFilter && activeDocFilter.startsWith('missing-')) {
       const which = activeDocFilter.slice('missing-'.length);
-      if (types.has(which)) return false;
+      if (which === 'photos' ? hasPhotos : types.has(which)) return false;
     } else if (activeDocFilter !== 'any') {
-      if (!types.has(activeDocFilter)) return false;
+      if (activeDocFilter === 'photos' ? !hasPhotos : !types.has(activeDocFilter)) return false;
     }
 
     if (!q) return true;
@@ -1500,7 +1506,7 @@ async function renderJobLibrary() {
   list.innerHTML = filtered.map(j => {
     const docs = docsByJob[j.id] || [];
     const pills = Object.entries(DOC_TYPES).map(([k, v]) => {
-      const count = docs.filter(d => d.doc_type === k).length;
+      const count = k === 'photos' ? (photoCountByJob[j.id] || 0) : docs.filter(d => d.doc_type === k).length;
       const hc = count > 0 ? 'has' : 'empty';
       const tip = count > 0 ? `${count} ${v.label}${count === 1 ? '' : 's'}` : `${v.label} — none yet`;
       return `<div class="doc-pill-item ${v.cls}" title="${tip}"><div class="doc-pill-icon ${hc} ${v.cls}">${ICO(v.icon)}</div><div class="doc-pill-count ${hc} ${v.cls}">${count}</div></div>`;
