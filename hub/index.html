@@ -149,7 +149,7 @@
 
   /* ── JOB LIBRARY ── */
   .job-grid { display: flex; flex-direction: column; gap: 10px; }
-  .job-row { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 14px 20px 14px 22px; cursor: pointer; transition: all 0.14s ease; display: grid; grid-template-columns: 44px 1fr auto; gap: 10px 18px; align-items: center; box-shadow: var(--sh-1); }
+  .job-row { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 14px 20px 14px 22px; cursor: pointer; transition: all 0.14s ease; display: grid; grid-template-columns: 44px 1fr auto auto; gap: 18px; align-items: center; box-shadow: var(--sh-1); }
   .job-row::before { content: ''; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 0 3px 3px 0; background: var(--line-strong); transition: all 0.14s; }
   .job-row.status-active::before    { background: var(--accent); }
   .job-row.status-completed::before { background: var(--ok); }
@@ -167,7 +167,7 @@
   .job-name { font-size: 1.02rem; font-weight: 600; color: var(--ink); letter-spacing: -0.018em; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .job-addr { font-size: 0.84rem; color: var(--ink-4); margin-top: 4px; display: flex; align-items: center; gap: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .job-addr svg { width: 12px; height: 12px; flex-shrink: 0; color: var(--ink-5); }
-  .doc-pills { grid-column: 1 / -1; display: flex; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  .doc-pills { display: flex; gap: 8px; align-self: start; padding-top: 2px; }
   .doc-pill-item { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 32px; }
   .doc-pill-icon { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; transition: all 0.12s; }
   .doc-pill-icon svg { width: 13px; height: 13px; }
@@ -384,7 +384,7 @@
     .header-inner { padding: 12px 16px; gap: 10px; }
     .screen { padding: 20px 16px 80px; }
     .user-info { display: none; }
-    .job-row { grid-template-columns: 44px 1fr; }
+    .job-row { grid-template-columns: 44px 1fr auto; }
     .job-dates { display: none; }
     .folder-meta-grid { grid-template-columns: 1fr 1fr; }
     .meta-cell { border-right: none; }
@@ -400,6 +400,7 @@
     .modal { max-width: 100% !important; max-height: 92vh; border-radius: var(--r-lg) var(--r-lg) 0 0; }
     .doc-host iframe { height: calc(100vh - 180px); min-height: 420px; }
     .job-row { grid-template-columns: 44px 1fr; }
+    .doc-pills { grid-column: 2; margin-top: 4px; }
   }
 
   /* ── DOC FOLDER SEARCH ── */
@@ -1509,7 +1510,6 @@ async function renderJobLibrary() {
       : '';
     return `
       <div class="job-row status-${esc(j.status || 'active')}" onclick="openJob('${j.id}')">
-        <div class="doc-pills">${pills}</div>
         <div class="folder-icon">${ICO('icon-folder')}</div>
         <div class="job-main">
           <div class="job-wo">
@@ -1521,6 +1521,7 @@ async function renderJobLibrary() {
           <div class="job-name">${esc(j.job_name || 'Untitled job')}</div>
           <div class="job-addr">${ICO('icon-pin')}${esc(j.job_type === 'Fault' ? (j.description || 'No description') : (j.address || 'No location'))}</div>
         </div>
+        <div class="doc-pills">${pills}</div>
         <div class="job-dates">
           <div class="label">Updated</div>
           <div class="val">${relTime(j.updated_at)}</div>
