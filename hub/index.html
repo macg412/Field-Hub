@@ -451,6 +451,9 @@
   .pg-del { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.5); color: #fff; border: none; border-radius: 6px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
   .pg-del:hover { background: var(--danger); }
   .pg-del svg { width: 12px; height: 12px; }
+  .pg-dl { position: absolute; top: 6px; right: 40px; background: rgba(0,0,0,0.5); color: #fff; border: none; border-radius: 6px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .pg-dl:hover { background: var(--accent); }
+  .pg-dl svg { width: 12px; height: 12px; }
   .pg-meta { padding: 9px; }
   .pg-caption { width: 100%; border: 1px solid var(--line-2); border-radius: 6px; padding: 6px 9px; font-size: 0.81rem; font-family: var(--font); color: var(--ink); background: var(--bg-elev); }
   .pg-caption:focus { outline: none; border-color: var(--accent); }
@@ -1061,6 +1064,9 @@
         <svg><use href="#icon-plus"/></svg> Add Photos
         <input type="file" id="pgFileInput" accept="image/*" multiple style="display:none" onchange="onPhotoFilesSelected(this.files)">
       </label>
+      <button class="btn btn-secondary" id="pgDlAllBtn" onclick="downloadAllPhotos()" style="display:none;">
+        <svg><use href="#icon-download"/></svg> Download All
+      </button>
       <button class="btn btn-ghost" onclick="closePhotoGallery()">Done</button>
     </div>
   </div>
@@ -2413,16 +2419,20 @@ async function renderPhotoGallery() {
   body.innerHTML = '<div class="pg-empty"><div class="pg-spinner"></div><span style="margin-left:8px">Loading…</span></div>';
   const { data: photos = [] } = await sb.from('site_photos').select('*')
     .eq('site_id', photoGallerySiteId).order('sort_order').order('created_at');
+  const dlAllBtn = document.getElementById('pgDlAllBtn');
   if (!photos.length) {
     body.innerHTML = `<div class="pg-empty">${ICO('icon-photo')}<p>No photos yet.<br>Click "Add Photos" to upload.</p></div>`;
+    if (dlAllBtn) dlAllBtn.style.display = 'none';
     return;
   }
+  if (dlAllBtn) { dlAllBtn.style.display = ''; dlAllBtn.dataset.count = photos.length; }
   body.innerHTML = `
     <div class="pg-grid">
       ${photos.map((p, i) => `
         <div class="pg-card">
           <div class="pg-img-wrap">
             <img src="${esc(p.public_url)}" alt="${esc(p.caption||'Photo')}" onclick="pgLightbox('${esc(p.public_url)}')">
+            <button class="pg-dl" onclick="downloadPhoto('${esc(p.public_url)}','${esc(p.caption||'photo')}')" title="Download photo">${ICO('icon-download')}</button>
             <button class="pg-del" onclick="deletePhoto('${p.id}')" title="Delete photo">${ICO('icon-trash')}</button>
           </div>
           <div class="pg-meta">
@@ -2441,6 +2451,38 @@ function pgLightbox(url) {
   lb.innerHTML = `<img src="${esc(url)}" alt="Photo">`;
   lb.onclick = () => lb.remove();
   document.body.appendChild(lb);
+}
+
+async function downloadPhoto(url, caption) {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (caption || 'photo').replace(/[/\\:*?"<>|]/g, '_') + '.jpg';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  } catch (err) {
+    toast('Download failed', 'danger');
+    console.error('downloadPhoto:', err);
+  }
+}
+
+async function downloadAllPhotos() {
+  const btn = document.getElementById('pgDlAllBtn');
+  const { data: photos = [] } = await sb.from('site_photos').select('*')
+    .eq('site_id', photoGallerySiteId).order('sort_order').order('created_at');
+  if (!photos.length) return;
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  for (let i = 0; i < photos.length; i++) {
+    btn.textContent = `Downloading ${i + 1}/${photos.length}…`;
+    await downloadPhoto(photos[i].public_url, photos[i].caption || `photo_${i + 1}`);
+    await new Promise(r => setTimeout(r, 300));
+  }
+  btn.disabled = false;
+  btn.innerHTML = orig;
+  toast(`${photos.length} photo${photos.length > 1 ? 's' : ''} downloaded`, 'success');
 }
 
 async function onPhotoFilesSelected(files) {
