@@ -2205,7 +2205,7 @@ function renderDocTypeCard(key, def, myDocs, siteId, siteName='') {
       ${myDocs.map(d => d.pdf_url ? `
         <div class="doc-item" style="cursor:pointer;" onclick="window.open('${esc(d.pdf_url)}','_blank')" data-search="${esc((d.payload?.tplName||d.title||def.label)+' '+(d.updated_by_name||d.created_by_name||'')).toLowerCase()}">
           <div class="doc-name">${esc(d.payload?.tplName || d.title || def.label)}</div>
-          ${(_activeJob?.wo_number || siteName) ? `<div style="font-size:11px;color:var(--text3);margin:-2px 0 2px;display:flex;gap:6px;flex-wrap:wrap;">${_activeJob?.wo_number ? `<span>WO ${esc(_activeJob.wo_number)}</span>` : ''}${siteName ? `<span>${esc(siteName)}</span>` : ''}</div>` : ''}
+          ${(_activeJob?.wo_number || siteName || d.payload?.jobDate) ? `<div style="font-size:11px;color:var(--text3);margin:-2px 0 2px;display:flex;gap:6px;flex-wrap:wrap;">${_activeJob?.wo_number ? `<span>WO ${esc(_activeJob.wo_number)}</span>` : ''}${d.payload?.jobDate ? `<span>${esc(fmtDate(d.payload.jobDate))}</span>` : ''}${siteName ? `<span>${esc(siteName)}</span>` : ''}</div>` : ''}
           <div class="doc-row">
             <span class="pdf-badge" onclick="event.stopPropagation();window.open('${esc(d.pdf_url)}','_blank')" style="cursor:pointer;flex-shrink:0;">PDF</span>
             <div class="doc-row-meta">
@@ -2217,8 +2217,9 @@ function renderDocTypeCard(key, def, myDocs, siteId, siteName='') {
             <button class="doc-action-btn danger" title="Delete" onclick="event.stopPropagation();deleteDocFromFolder('${d.id}')">${ICO('icon-trash')}</button>
           </div>
         </div>` : `
-        <div class="doc-item" style="cursor:pointer;" onclick="openDoc('${d.id}')" data-search="${esc((d.title||def.label)+' '+(d.updated_by_name||d.created_by_name||'')).toLowerCase()}">
-          <div class="doc-name">${esc(d.title || def.label)}</div>
+        <div class="doc-item" style="cursor:pointer;" onclick="openDoc('${d.id}')" data-search="${esc((d.payload?.tplName||d.title||def.label)+' '+(d.updated_by_name||d.created_by_name||'')).toLowerCase()}">
+          <div class="doc-name">${esc(d.payload?.tplName || d.title || def.label)}</div>
+          ${(_activeJob?.wo_number || siteName || d.payload?.jobDate) ? `<div style="font-size:11px;color:var(--text3);margin:-2px 0 2px;display:flex;gap:6px;flex-wrap:wrap;">${_activeJob?.wo_number ? `<span>WO ${esc(_activeJob.wo_number)}</span>` : ''}${d.payload?.jobDate ? `<span>${esc(fmtDate(d.payload.jobDate))}</span>` : ''}${siteName ? `<span>${esc(siteName)}</span>` : ''}</div>` : ''}
           <div class="doc-row">
             <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--warn-soft);color:var(--warn);flex-shrink:0;letter-spacing:.03em;">DRAFT</span>
             <div class="doc-row-meta">
