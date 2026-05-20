@@ -1444,6 +1444,7 @@ let activeFilter = 'all';
 let activeDocFilter = 'any';
 let activeTypeFilter = 'all';
 let activeJobId = null;
+let _activeJob = null;
 let activeDocId = null;
 let activeDocType = null;
 let editingJobId = null; // null = creating; otherwise editing
@@ -1855,6 +1856,7 @@ async function openJob(jobId) {
   activeJobId = jobId;
   const { data: job } = await sb.from('jobs').select('*').eq('id', jobId).single();
   if (!job) return;
+  _activeJob = job;
 
   document.getElementById('crumbJob').textContent = job.job_name || job.wo_number;
   // Secondary IDs shown next to WO# depend on job type
@@ -2191,14 +2193,15 @@ async function deleteDocFromFolder(docId) {
 }
 
 /* ═══════════════ SHARED DOC CARD RENDERER ═══════════════ */
-function renderDocTypeCard(key, def, myDocs, siteId) {
+function renderDocTypeCard(key, def, myDocs, siteId, siteName='') {
   const itemsHtml = myDocs.length ? `
     <div class="doc-list">
       ${myDocs.map(d => d.pdf_url ? `
-        <div class="doc-item" data-search="${esc((d.title||def.label)+' '+(d.updated_by_name||d.created_by_name||'')).toLowerCase()}">
-          <a class="doc-name" href="${esc(d.pdf_url)}" target="_blank">${esc(d.title || def.label)}</a>
+        <div class="doc-item" style="cursor:pointer;" onclick="window.open('${esc(d.pdf_url)}','_blank')" data-search="${esc((d.payload?.tplName||d.title||def.label)+' '+(d.updated_by_name||d.created_by_name||'')).toLowerCase()}">
+          <div class="doc-name">${esc(d.payload?.tplName || d.title || def.label)}</div>
+          ${(_activeJob?.wo_number || siteName) ? `<div style="font-size:11px;color:var(--text3);margin:-2px 0 2px;display:flex;gap:6px;flex-wrap:wrap;">${_activeJob?.wo_number ? `<span>WO ${esc(_activeJob.wo_number)}</span>` : ''}${siteName ? `<span>${esc(siteName)}</span>` : ''}</div>` : ''}
           <div class="doc-row">
-            <a href="${esc(d.pdf_url)}" target="_blank" style="text-decoration:none;flex-shrink:0;" onclick="event.stopPropagation()"><span class="pdf-badge">PDF</span></a>
+            <span class="pdf-badge" onclick="event.stopPropagation();window.open('${esc(d.pdf_url)}','_blank')" style="cursor:pointer;flex-shrink:0;">PDF</span>
             <div class="doc-row-meta">
               <span class="by">${esc(d.updated_by_name || d.created_by_name || '—')}</span>
               <span class="sep">·</span>
@@ -2248,7 +2251,7 @@ function renderSitesInFolder(sites, docs) {
     const siteDocs = docs.filter(d => d.site_id === site.id);
 
     // Forms card (FieldForms launcher) — uses createDoc flow so docId is sent
-    const formsCard = renderDocTypeCard('asbuilt', DOC_TYPES.asbuilt, siteDocs.filter(d => d.doc_type === 'asbuilt'), site.id);
+    const formsCard = renderDocTypeCard('asbuilt', DOC_TYPES.asbuilt, siteDocs.filter(d => d.doc_type === 'asbuilt'), site.id, site.name);
 
     // Photos card (special — opens gallery)
     const photosCard = renderSitePhotosCard(site);
