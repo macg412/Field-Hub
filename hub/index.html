@@ -457,6 +457,7 @@
   .pg-notes:focus { outline: none; border-color: var(--accent); }
   .pg-empty { padding: 40px 20px; text-align: center; color: var(--ink-4); font-size: 0.88rem; }
   .pg-empty svg { width: 32px; height: 32px; color: var(--ink-5); display: block; margin: 0 auto 10px; }
+  .pg-drop-over { outline: 3px dashed oklch(56% 0.20 25); outline-offset: -6px; background: oklch(97% 0.03 25) !important; border-radius: var(--r); }
   .pg-upload-progress { background: var(--accent-soft); border: 1px solid oklch(88% 0.04 258); border-radius: 9px; padding: 12px 16px; font-size: 0.84rem; color: var(--accent-ink); margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
   .pg-spinner { width: 16px; height: 16px; border: 2px solid oklch(85% 0.05 258); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
   .pg-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 500; display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
@@ -1046,7 +1047,10 @@
       <h3><svg style="width:18px;height:18px;vertical-align:-3px;margin-right:6px;"><use href="#icon-photo"/></svg>Photos — <span id="pgSiteName">Site</span></h3>
       <button class="modal-close" onclick="closePhotoGallery()"><svg><use href="#icon-x"/></svg></button>
     </div>
-    <div class="modal-body" id="pgBody" style="max-height:65vh;overflow-y:auto;">
+    <div class="modal-body" id="pgBody" style="max-height:65vh;overflow-y:auto;"
+         ondragover="event.preventDefault();event.dataTransfer.dropEffect='copy';this.classList.add('pg-drop-over')"
+         ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('pg-drop-over')"
+         ondrop="event.preventDefault();this.classList.remove('pg-drop-over');onPhotoFilesSelected(event.dataTransfer.files)">
       <div class="pg-empty"><svg><use href="#icon-photo"/></svg>No photos yet</div>
     </div>
     <div class="modal-foot">
