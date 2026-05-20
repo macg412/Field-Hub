@@ -1392,6 +1392,12 @@ async function logActivity(job_id, action, summary, doc_id=null) {
   await sb.from('activity_log').insert({ job_id, doc_id, action, summary, actor_name: currentUser.name });
 }
 
+/* ═══════════════ APP_DONE HANDLER ═══════════════ */
+window.addEventListener('message', e => {
+  if (!e.data || e.data.type !== 'APP_DONE') return;
+  if (activeJobId) openJob(activeJobId);
+});
+
 /* ═══════════════ DRAFT_SAVE HANDLER ═══════════════ */
 window.addEventListener('message', async e => {
   if (!e.data || e.data.type !== 'DRAFT_SAVE') return;
