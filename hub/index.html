@@ -148,6 +148,10 @@
   .lib-meta { display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; color: var(--ink-4); margin-bottom: 12px; padding: 0 4px; font-family: var(--mono); letter-spacing: 0.02em; }
 
   /* ── JOB LIBRARY ── */
+  .lib-loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 56px 0; color: var(--ink-4); font-size: 0.9rem; }
+  .lib-spinner { width: 26px; height: 26px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+  .lib-load-more { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 24px 0 8px; color: var(--ink-4); font-size: 0.84rem; }
+  .lib-load-spinner { width: 15px; height: 15px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
   .job-grid { display: flex; flex-direction: column; gap: 10px; }
   .job-row { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 14px 20px 14px 22px; cursor: pointer; transition: all 0.14s ease; display: grid; grid-template-columns: 44px 1fr auto auto; gap: 18px; align-items: center; box-shadow: var(--sh-1); }
   .job-row::before { content: ''; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 0 3px 3px 0; background: var(--line-strong); transition: all 0.14s; }
@@ -1618,26 +1622,38 @@ let photoGallerySiteId = null; // site whose gallery is open
 const _pgMetaTimers = {}; // debounce timers for photo meta saves
 
 /* ═══════════════ JOB LIBRARY ═══════════════ */
-async function renderJobLibrary() {
+/* ── JOB LIBRARY CACHE + PAGINATION ── */
+const PAGE_SIZE = 15;
+const SCROLL_TRIGGER_OFFSET = 5; // trigger next load when this many items remain below
+let _jobCache        = null;  // { jobs, docsByJob, photoCountByJob }
+let _currentFiltered = [];    // filtered+sorted array from cache
+let _displayedCount  = 0;     // how many rows are in the DOM right now
+let _scrollObserver  = null;
+
+function _invalidateJobCache() { _jobCache = null; }
+
+async function _fetchJobData() {
   const [{ data: jobs = [], error }, { data: photoRows = [] }] = await Promise.all([
     sb.from('jobs').select('*, documents(*)'),
     sb.from('site_photos').select('job_id')
   ]);
-  if (error) console.error('renderJobLibrary:', error);
+  if (error) { console.error('fetchJobData:', error); return null; }
   const docsByJob = {};
   jobs.forEach(j => { docsByJob[j.id] = j.documents || []; });
   const photoCountByJob = {};
   photoRows.forEach(p => { photoCountByJob[p.job_id] = (photoCountByJob[p.job_id] || 0) + 1; });
+  return { jobs, docsByJob, photoCountByJob };
+}
 
-  const q = (document.getElementById('jobSearch').value || '').trim().toLowerCase();
+function _applyFiltersAndSort() {
+  const { jobs, docsByJob, photoCountByJob } = _jobCache;
+  const q    = (document.getElementById('jobSearch').value || '').trim().toLowerCase();
   const sort = document.getElementById('sortPicker').value;
 
   let filtered = jobs.filter(j => {
     if (activeFilter !== 'all' && j.status !== activeFilter) return false;
     if (activeTypeFilter !== 'all' && j.job_type !== activeTypeFilter) return false;
-
-    // Doc-type filter
-    const types = new Set((docsByJob[j.id] || []).map(d => d.doc_type));
+    const types     = new Set((docsByJob[j.id] || []).map(d => d.doc_type));
     const hasPhotos = (photoCountByJob[j.id] || 0) > 0;
     if (activeDocFilter && activeDocFilter.startsWith('missing-')) {
       const which = activeDocFilter.slice('missing-'.length);
@@ -1645,7 +1661,6 @@ async function renderJobLibrary() {
     } else if (activeDocFilter !== 'any') {
       if (activeDocFilter === 'photos' ? !hasPhotos : !types.has(activeDocFilter)) return false;
     }
-
     if (!q) return true;
     return [j.wo_number, j.job_name, j.address, j.description, j.cae_number,
             j.downer_wo_number, j.first_responder, j.notes, j.created_by_name]
@@ -1658,14 +1673,120 @@ async function renderJobLibrary() {
     if (sort === 'name')    return (a.job_name  || '').localeCompare(b.job_name  || '');
     return new Date(b.updated_at) - new Date(a.updated_at);
   });
+  _currentFiltered = filtered;
+}
+
+function _renderJobCard(j) {
+  const { docsByJob, photoCountByJob } = _jobCache;
+  const docs  = docsByJob[j.id] || [];
+  const pills = Object.entries(DOC_TYPES).map(([k, v]) => {
+    const count = k === 'photos' ? (photoCountByJob[j.id] || 0) : docs.filter(d => d.doc_type === k).length;
+    const hc  = count > 0 ? 'has' : 'empty';
+    const tip = count > 0 ? `${count} ${v.label}${count === 1 ? '' : 's'}` : `${v.label} — none yet`;
+    return `<div class="doc-pill-item ${v.cls}" title="${tip}"><div class="doc-pill-icon ${hc} ${v.cls}">${ICO(v.icon)}</div><div class="doc-pill-count ${hc} ${v.cls}">${count}</div></div>`;
+  }).join('');
+  const statusTag = j.status && j.status !== 'active'
+    ? `<span class="status-tag ${esc(j.status)}"><span class="dot"></span>${esc(j.status[0].toUpperCase()+j.status.slice(1))}</span>`
+    : '';
+  return `
+    <div class="job-row status-${esc(j.status || 'active')}" onclick="openJob('${j.id}')">
+      <div class="folder-icon">${ICO('icon-folder')}</div>
+      <div class="job-main">
+        <div class="job-wo">
+          <span>WO ${esc(j.wo_number || '—')}</span>
+          ${j.cae_number ? `<span class="sep">·</span><span class="cae">CAE ${esc(j.cae_number)}</span>` : ''}
+          <span class="type-badge type-${['Fault','Defect','Project','Other'].includes(j.job_type) ? j.job_type.toLowerCase() : 'other'}">${esc(j.job_type || 'Unknown')}</span>
+          ${statusTag}
+        </div>
+        <div class="job-name">${esc(j.job_name || 'Untitled job')}</div>
+        <div class="job-addr">${ICO('icon-pin')}${esc(j.job_type === 'Fault' ? (j.description || 'No description') : (j.address || 'No location'))}</div>
+      </div>
+      <div class="doc-pills">${pills}</div>
+      <div class="job-dates">
+        <div class="label">Updated</div>
+        <div class="val">${relTime(j.updated_at)}</div>
+      </div>
+    </div>`;
+}
+
+function _updateLibMeta() {
+  const meta = document.getElementById('libMeta');
+  if (!meta) return;
+  const sort  = document.getElementById('sortPicker').value;
+  const total = _jobCache.jobs.length;
+  const shown = _displayedCount;
+  const found = _currentFiltered.length;
+  const sortLabel = {updated:'recent activity',created:'created date',wo:'WO #',name:'name'}[sort] || sort;
+  const countStr  = shown < found ? `Showing ${shown} of ${found} job${found===1?'':'s'}` : `${found} job${found===1?'':'s'}`;
+  meta.innerHTML  = `<span>${countStr} · ${total} total</span><span>sorted by ${sortLabel}</span>`;
+}
+
+function _setupScrollObserver() {
+  if (_scrollObserver) { _scrollObserver.disconnect(); _scrollObserver = null; }
+  if (_displayedCount >= _currentFiltered.length) return; // all loaded
+
+  const list  = document.getElementById('jobList');
+  const items = list.querySelectorAll('.job-row');
+  const triggerIdx = Math.max(0, items.length - SCROLL_TRIGGER_OFFSET - 1);
+  const trigger    = items[triggerIdx];
+  if (!trigger) return;
+
+  _scrollObserver = new IntersectionObserver(entries => {
+    if (!entries[0].isIntersecting) return;
+    _scrollObserver.disconnect();
+    _scrollObserver = null;
+    _appendJobPage();
+  }, { rootMargin: '120px' });
+  _scrollObserver.observe(trigger);
+}
+
+function _appendJobPage() {
+  const list  = document.getElementById('jobList');
+  // Remove the "loading more" sentinel if present
+  const sentinel = list.querySelector('.lib-load-more');
+  if (sentinel) sentinel.remove();
+
+  const batch = _currentFiltered.slice(_displayedCount, _displayedCount + PAGE_SIZE);
+  if (!batch.length) return;
+
+  list.insertAdjacentHTML('beforeend', batch.map(_renderJobCard).join(''));
+  _displayedCount += batch.length;
+  _updateLibMeta();
+
+  if (_displayedCount < _currentFiltered.length) {
+    list.insertAdjacentHTML('beforeend',
+      `<div class="lib-load-more"><div class="lib-load-spinner"></div><span>Loading more…</span></div>`);
+    _setupScrollObserver();
+  }
+}
+
+async function renderJobLibrary(invalidateCache = false) {
+  if (invalidateCache) _invalidateJobCache();
 
   const list  = document.getElementById('jobList');
   const empty = document.getElementById('jobEmpty');
   const meta  = document.getElementById('libMeta');
-  if (!filtered.length) {
-    list.innerHTML = '';
+
+  if (_scrollObserver) { _scrollObserver.disconnect(); _scrollObserver = null; }
+
+  if (!_jobCache) {
     if (meta) meta.innerHTML = '';
-    const hasNothing = jobs.length === 0;
+    empty.style.display = 'none';
+    list.innerHTML = `<div class="lib-loading"><div class="lib-spinner"></div><span>Loading jobs…</span></div>`;
+    _jobCache = await _fetchJobData();
+    if (!_jobCache) {
+      list.innerHTML = `<div class="lib-loading"><span style="color:var(--danger);">Failed to load — check your connection and refresh.</span></div>`;
+      return;
+    }
+  }
+
+  _applyFiltersAndSort();
+  _displayedCount = 0;
+  list.innerHTML  = '';
+
+  if (!_currentFiltered.length) {
+    if (meta) meta.innerHTML = '';
+    const hasNothing = _jobCache.jobs.length === 0;
     empty.innerHTML = hasNothing
       ? `<div class="icon">${ICO('icon-folder')}</div><h3>No jobs yet</h3><p>Create your first job folder to get started — Work Order #, name and address are all you need.</p><button class="btn btn-primary" style="margin-top:18px;" onclick="openCreateJob()">${ICO('icon-plus')} New Job</button>`
       : `<div class="icon">${ICO('icon-search')}</div><h3>No jobs match those filters</h3><p>Try a different work order number, address, or status — or clear filters to see everything.</p>`;
@@ -1673,39 +1794,7 @@ async function renderJobLibrary() {
     return;
   }
   empty.style.display = 'none';
-  if (meta) meta.innerHTML = `<span>${filtered.length} job${filtered.length===1?'':'s'} · ${jobs.length} total</span><span>sorted by ${{updated:'recent activity',created:'created date',wo:'WO #',name:'name'}[sort]}</span>`;
-
-  list.innerHTML = filtered.map(j => {
-    const docs = docsByJob[j.id] || [];
-    const pills = Object.entries(DOC_TYPES).map(([k, v]) => {
-      const count = k === 'photos' ? (photoCountByJob[j.id] || 0) : docs.filter(d => d.doc_type === k).length;
-      const hc = count > 0 ? 'has' : 'empty';
-      const tip = count > 0 ? `${count} ${v.label}${count === 1 ? '' : 's'}` : `${v.label} — none yet`;
-      return `<div class="doc-pill-item ${v.cls}" title="${tip}"><div class="doc-pill-icon ${hc} ${v.cls}">${ICO(v.icon)}</div><div class="doc-pill-count ${hc} ${v.cls}">${count}</div></div>`;
-    }).join('');
-    const statusTag = j.status && j.status !== 'active'
-      ? `<span class="status-tag ${esc(j.status)}"><span class="dot"></span>${esc(j.status[0].toUpperCase()+j.status.slice(1))}</span>`
-      : '';
-    return `
-      <div class="job-row status-${esc(j.status || 'active')}" onclick="openJob('${j.id}')">
-        <div class="folder-icon">${ICO('icon-folder')}</div>
-        <div class="job-main">
-          <div class="job-wo">
-            <span>WO ${esc(j.wo_number || '—')}</span>
-            ${j.cae_number ? `<span class="sep">·</span><span class="cae">CAE ${esc(j.cae_number)}</span>` : ''}
-            <span class="type-badge type-${['Fault','Defect','Project','Other'].includes(j.job_type) ? j.job_type.toLowerCase() : 'other'}">${esc(j.job_type || 'Unknown')}</span>
-            ${statusTag}
-          </div>
-          <div class="job-name">${esc(j.job_name || 'Untitled job')}</div>
-          <div class="job-addr">${ICO('icon-pin')}${esc(j.job_type === 'Fault' ? (j.description || 'No description') : (j.address || 'No location'))}</div>
-        </div>
-        <div class="doc-pills">${pills}</div>
-        <div class="job-dates">
-          <div class="label">Updated</div>
-          <div class="val">${relTime(j.updated_at)}</div>
-        </div>
-      </div>`;
-  }).join('');
+  _appendJobPage();
 }
 
 
@@ -1981,7 +2070,7 @@ async function saveJob() {
   if (editingJobId && document.getElementById('screenFolder').classList.contains('active')) {
     toast('Job updated', 'success'); openJob(editingJobId);
   } else {
-    toast(editingJobId ? 'Job updated' : 'Job created', 'success'); renderJobLibrary();
+    toast(editingJobId ? 'Job updated' : 'Job created', 'success'); renderJobLibrary(true);
   }
 }
 
@@ -2084,8 +2173,8 @@ async function deleteJob() {
 
         toast('Job folder deleted', 'danger');
         activeJobId = null;
+        _invalidateJobCache();
         goLibrary();
-        renderJobLibrary();
       } catch (err) {
         console.error('deleteJob error:', err);
         toast('Delete failed: ' + (err.message || err), 'danger');
