@@ -669,6 +669,27 @@
       <div class="auth-switch"><a href="#" onclick="showAuthPanel('login');return false">Back to sign in</a></div>
     </div>
 
+    <!-- RESET PASSWORD (arrived via email link) -->
+    <div id="panelReset" hidden>
+      <div class="auth-title">Set new password</div>
+      <p class="auth-body">Choose a new password for your account.</p>
+      <div class="field">
+        <label>New password <span style="color:var(--ink-5);font-weight:400;">(min. 6 characters)</span></label>
+        <div class="pw-wrap">
+          <input type="password" id="resetPassword" autocomplete="new-password" placeholder="New password">
+          <button type="button" class="pw-toggle" onclick="togglePw('resetPassword',this)" tabindex="-1" aria-label="Show password"><svg><use href="#icon-eye"/></svg></button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Confirm new password</label>
+        <div class="pw-wrap">
+          <input type="password" id="resetConfirm" autocomplete="new-password" placeholder="Re-enter new password" onkeydown="if(event.key==='Enter')doResetPassword()">
+          <button type="button" class="pw-toggle" onclick="togglePw('resetConfirm',this)" tabindex="-1" aria-label="Show password"><svg><use href="#icon-eye"/></svg></button>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:4px;" onclick="doResetPassword()">Update password</button>
+    </div>
+
     <!-- CONFIRM EMAIL -->
     <div id="panelConfirm" hidden>
       <div style="text-align:center;margin-bottom:16px;"><svg style="width:40px;height:40px;color:var(--ok)"><use href="#icon-check"/></svg></div>
@@ -1225,7 +1246,7 @@ let currentUser = null; // set by handleSession() after sign-in
 
 /* ═══════════════ AUTH ═══════════════ */
 function showAuthPanel(name) {
-  ['loading','login','signup','forgot','confirm','pending'].forEach(p => {
+  ['loading','login','signup','forgot','reset','confirm','pending'].forEach(p => {
     const el = document.getElementById('panel' + p.charAt(0).toUpperCase() + p.slice(1));
     if (el) el.hidden = (p !== name);
   });
@@ -1240,11 +1261,16 @@ function initAuth() {
   sb.auth.onAuthStateChange(async (event, session) => {
     console.log('[auth] state change:', event, session?.user?.email);
     if (event === 'INITIAL_SESSION') {
-      if (session) {
+      if (session && !window.location.hash.includes('type=recovery')) {
         showAuthPanel('loading');
         await handleSession(session);
       }
-      // no session — login panel is already visible, nothing to do
+      // recovery redirect handled by PASSWORD_RECOVERY event below
+      // no session — login panel is already visible
+      return;
+    }
+    if (event === 'PASSWORD_RECOVERY') {
+      showAuthPanel('reset');
       return;
     }
     if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
@@ -1387,6 +1413,32 @@ async function doForgotPassword() {
   }
 }
 
+async function doResetPassword() {
+  const password = document.getElementById('resetPassword').value;
+  const confirm  = document.getElementById('resetConfirm').value;
+  if (!password || !confirm) { toast('Please fill in both fields', 'warn'); return; }
+  if (password.length < 6) { toast('Password must be at least 6 characters', 'warn'); return; }
+  if (password !== confirm) { toast('Passwords do not match — please re-enter', 'danger'); return; }
+  const btn = document.querySelector('#panelReset .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
+  try {
+    const { error } = await sb.auth.updateUser({ password });
+    if (error) {
+      toast(error.message, 'danger');
+    } else {
+      toast('Password updated — signing you in…', 'ok');
+      history.replaceState(null, '', window.location.pathname);
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) await handleSession(session);
+      else showAuthPanel('login');
+    }
+  } catch(err) {
+    toast(err.message || 'Failed to update password. Please try again.', 'danger');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Update password'; }
+  }
+}
+
 function togglePw(inputId, btn) {
   const inp = document.getElementById(inputId);
   const show = inp.type === 'password';
@@ -1465,7 +1517,7 @@ const ICO = id => `<svg><use href="#${id}"/></svg>`;
 const SUPABASE_URL  = 'https://rgcmisfwrflshggcwjie.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJnY21pc2Z3cmZsc2hnZ2N3amllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NzU2ODcsImV4cCI6MjA4OTM1MTY4N30.q2Et2UUoYYK2UXeBiKFfVbfYBVfIDOya0E-LL81cZCc';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
 });
 
 /* ═══════════════ HELPERS ═══════════════ */
