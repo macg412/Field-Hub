@@ -479,6 +479,11 @@
   .auth-switch { text-align: center; font-size: 0.82rem; color: var(--ink-4); margin-top: 14px; }
   .auth-switch a { color: var(--accent); text-decoration: none; font-weight: 600; }
   .auth-switch a:hover { text-decoration: underline; }
+  body.auth-mode header { display: none; }
+  body.auth-mode .auth-overlay { background:
+    radial-gradient(900px 700px at 60% -5%, oklch(94% 0.04 258) 0%, transparent 55%),
+    radial-gradient(700px 600px at -5% 100%, oklch(96% 0.03 200) 0%, transparent 55%),
+    var(--bg); }
   .pw-wrap { position: relative; }
   .pw-wrap input { padding-right: 44px !important; }
   .pw-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; padding: 4px; cursor: pointer; color: var(--ink-4); display: flex; align-items: center; line-height: 1; }
@@ -534,7 +539,7 @@
 </style>
 </head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<body>
+<body class="auth-mode">
 
 <!-- ════════════════════════════════════════════════════════════════════
      SVG ICON LIBRARY
@@ -1251,8 +1256,16 @@ function showAuthPanel(name) {
     if (el) el.hidden = (p !== name);
   });
   document.getElementById('authOverlay').style.display = 'flex';
+  document.body.classList.add('auth-mode');
 }
-function hideAuthOverlay() { document.getElementById('authOverlay').style.display = 'none'; }
+function hideAuthOverlay() {
+  document.getElementById('authOverlay').style.display = 'none';
+  document.body.classList.remove('auth-mode');
+}
+function resetLoginBtn() {
+  const btn = document.querySelector('#panelLogin .btn-primary');
+  if (btn) { btn.disabled = false; btn.textContent = 'Sign in'; }
+}
 
 let _intentionalSignOut = false;
 
@@ -1278,11 +1291,9 @@ function initAuth() {
       return;
     }
     if (event === 'SIGNED_OUT') {
-      if (_intentionalSignOut) {
-        _intentionalSignOut = false;
-        currentUser = null;
-        showAuthPanel('login');
-      }
+      currentUser = null;
+      _intentionalSignOut = false;
+      showAuthPanel('login');
     }
   });
 }
@@ -1303,11 +1314,15 @@ async function handleSession(session) {
       profile = data;
     } catch(e) {
       console.error('profile fetch failed/timed out:', e);
-      if (!alreadyLoggedIn) showAuthPanel('login');
+      resetLoginBtn();
+      showAuthPanel('login');
       return;
     }
 
-    if (!profile) { console.error('no profile for', session.user.id); if (!alreadyLoggedIn) showAuthPanel('login'); return; }
+    if (!profile) {
+      console.error('no profile for', session.user.id);
+      resetLoginBtn(); showAuthPanel('login'); return;
+    }
     if (!profile.approved) { showAuthPanel('pending'); return; }
 
     const initials = (profile.name || session.user.email)
@@ -1320,14 +1335,16 @@ async function handleSession(session) {
     document.getElementById('userName').textContent = currentUser.name;
     document.getElementById('adminBtn').style.display = currentUser.isAdmin ? 'inline-flex' : 'none';
 
+    // Always hide the overlay — catches cases where currentUser was stale from a prior session
+    hideAuthOverlay();
     if (!alreadyLoggedIn) {
-      hideAuthOverlay();
       await renderJobLibrary();
       showScreen('screenLibrary');
     }
   } catch(err) {
     console.error('handleSession error:', err);
-    if (!alreadyLoggedIn) showAuthPanel('login');
+    resetLoginBtn();
+    showAuthPanel('login');
   }
 }
 
