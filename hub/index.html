@@ -479,6 +479,14 @@
   .auth-switch { text-align: center; font-size: 0.82rem; color: var(--ink-4); margin-top: 14px; }
   .auth-switch a { color: var(--accent); text-decoration: none; font-weight: 600; }
   .auth-switch a:hover { text-decoration: underline; }
+  .pw-wrap { position: relative; }
+  .pw-wrap input { padding-right: 44px !important; }
+  .pw-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; padding: 4px; cursor: pointer; color: var(--ink-4); display: flex; align-items: center; line-height: 1; }
+  .pw-toggle:hover { color: var(--ink); }
+  .pw-toggle svg { width: 18px; height: 18px; }
+  .auth-forgot { text-align: right; margin-top: -8px; margin-bottom: 14px; }
+  .auth-forgot a { font-size: 0.8rem; color: var(--accent); text-decoration: none; font-weight: 500; }
+  .auth-forgot a:hover { text-decoration: underline; }
 
   /* ── ADMIN PANEL ── */
   .admin-user-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
@@ -555,6 +563,8 @@
     <symbol id="icon-chevron-down" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="icon-photo" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><circle cx="8.5" cy="10.5" r="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M3 16l5-5 4 4 3-3 6 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="icon-upload" viewBox="0 0 24 24" fill="none"><path d="M12 16V4m0 0l-4 4m4-4l4 4M5 20h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-eye" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="icon-eye-off" viewBox="0 0 24 24" fill="none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.73 10.73A3 3 0 0 0 14.83 14.83" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
   </defs>
 </svg>
 
@@ -603,20 +613,27 @@
       </div>
     </div>
 
-    <!-- LOADING — shown while session is being resolved -->
-    <div id="panelLoading">
+    <!-- LOADING — shown only when resuming an existing session -->
+    <div id="panelLoading" hidden>
       <div style="text-align:center;padding:28px 0 20px;">
         <div style="width:32px;height:32px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 14px;"></div>
-        <div style="font-size:0.88rem;color:var(--ink-4);">Checking session…</div>
+        <div style="font-size:0.88rem;color:var(--ink-4);">Loading your account…</div>
       </div>
     </div>
 
     <!-- LOGIN -->
-    <div id="panelLogin" hidden>
+    <div id="panelLogin">
       <div class="auth-title">Sign in</div>
       <div class="field"><label>Email</label><input type="email" id="loginEmail" autocomplete="email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')doLogin()"></div>
-      <div class="field"><label>Password</label><input type="password" id="loginPassword" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
-      <button class="btn btn-primary" style="width:100%;margin-top:4px;" onclick="doLogin()">Sign in</button>
+      <div class="field">
+        <label>Password</label>
+        <div class="pw-wrap">
+          <input type="password" id="loginPassword" autocomplete="off" placeholder="Enter your password" onkeydown="if(event.key==='Enter')doLogin()">
+          <button type="button" class="pw-toggle" onclick="togglePw('loginPassword',this)" tabindex="-1" aria-label="Show password"><svg><use href="#icon-eye"/></svg></button>
+        </div>
+      </div>
+      <div class="auth-forgot"><a href="#" onclick="showAuthPanel('forgot');return false">Forgot password?</a></div>
+      <button class="btn btn-primary" style="width:100%;" onclick="doLogin()">Sign in</button>
       <div class="auth-switch">No account? <a href="#" onclick="showAuthPanel('signup');return false">Create one</a></div>
     </div>
 
@@ -625,9 +642,31 @@
       <div class="auth-title">Create account</div>
       <div class="field"><label>Full name</label><input type="text" id="signupName" autocomplete="name" placeholder="e.g. Ben MacGeorge"></div>
       <div class="field"><label>Email</label><input type="email" id="signupEmail" autocomplete="email" placeholder="you@example.com"></div>
-      <div class="field"><label>Password</label><input type="password" id="signupPassword" autocomplete="new-password" placeholder="Minimum 6 characters" onkeydown="if(event.key==='Enter')doSignup()"></div>
+      <div class="field">
+        <label>Password <span style="color:var(--ink-5);font-weight:400;">(min. 6 characters)</span></label>
+        <div class="pw-wrap">
+          <input type="password" id="signupPassword" autocomplete="new-password" placeholder="Create a password">
+          <button type="button" class="pw-toggle" onclick="togglePw('signupPassword',this)" tabindex="-1" aria-label="Show password"><svg><use href="#icon-eye"/></svg></button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Confirm password</label>
+        <div class="pw-wrap">
+          <input type="password" id="signupConfirm" autocomplete="new-password" placeholder="Re-enter your password" onkeydown="if(event.key==='Enter')doSignup()">
+          <button type="button" class="pw-toggle" onclick="togglePw('signupConfirm',this)" tabindex="-1" aria-label="Show password"><svg><use href="#icon-eye"/></svg></button>
+        </div>
+      </div>
       <button class="btn btn-primary" style="width:100%;margin-top:4px;" onclick="doSignup()">Create account</button>
       <div class="auth-switch">Already have an account? <a href="#" onclick="showAuthPanel('login');return false">Sign in</a></div>
+    </div>
+
+    <!-- FORGOT PASSWORD -->
+    <div id="panelForgot" hidden>
+      <div class="auth-title">Reset password</div>
+      <p class="auth-body">Enter your email address and we'll send you a link to reset your password.</p>
+      <div class="field"><label>Email</label><input type="email" id="forgotEmail" autocomplete="email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')doForgotPassword()"></div>
+      <button class="btn btn-primary" style="width:100%;margin-top:4px;" onclick="doForgotPassword()">Send reset link</button>
+      <div class="auth-switch"><a href="#" onclick="showAuthPanel('login');return false">Back to sign in</a></div>
     </div>
 
     <!-- CONFIRM EMAIL -->
@@ -1186,7 +1225,7 @@ let currentUser = null; // set by handleSession() after sign-in
 
 /* ═══════════════ AUTH ═══════════════ */
 function showAuthPanel(name) {
-  ['loading','login','signup','confirm','pending'].forEach(p => {
+  ['loading','login','signup','forgot','confirm','pending'].forEach(p => {
     const el = document.getElementById('panel' + p.charAt(0).toUpperCase() + p.slice(1));
     if (el) el.hidden = (p !== name);
   });
@@ -1197,11 +1236,15 @@ function hideAuthOverlay() { document.getElementById('authOverlay').style.displa
 let _intentionalSignOut = false;
 
 function initAuth() {
-  showAuthPanel('loading');
+  showAuthPanel('login');
   sb.auth.onAuthStateChange(async (event, session) => {
     console.log('[auth] state change:', event, session?.user?.email);
     if (event === 'INITIAL_SESSION') {
-      showAuthPanel('login');
+      if (session) {
+        showAuthPanel('loading');
+        await handleSession(session);
+      }
+      // no session — login panel is already visible, nothing to do
       return;
     }
     if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
@@ -1214,8 +1257,6 @@ function initAuth() {
         currentUser = null;
         showAuthPanel('login');
       }
-      // Background SIGNED_OUT (visibility change / token refresh race) — ignored.
-      // Session is recovered on next INITIAL_SESSION or explicit action.
     }
   });
 }
@@ -1267,23 +1308,31 @@ async function handleSession(session) {
 async function doLogin() {
   const email    = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
-  if (!email || !password) { toast('Email and password required', 'warn'); return; }
+  if (!email || !password) { toast('Please enter your email and password', 'warn'); return; }
   const btn = document.querySelector('#panelLogin .btn-primary');
   const resetBtn = () => { if (btn) { btn.disabled = false; btn.textContent = 'Sign in'; } };
   if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
-  console.log('[auth] calling signInWithPassword for', email);
   try {
     const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Request timed out — check your connection')), 12000));
     const { data, error } = await Promise.race([
       sb.auth.signInWithPassword({ email, password }),
       timeout
     ]);
-    console.log('[auth] signInWithPassword result:', { data, error });
-    if (error) { toast(error.message, 'danger'); resetBtn(); return; }
-    // success — onAuthStateChange will fire → handleSession() loads the app
+    if (error) {
+      const msg = (error.message || '').toLowerCase();
+      if (msg.includes('invalid login') || msg.includes('invalid credentials') || msg.includes('wrong password')) {
+        toast('Incorrect email or password. Please try again.', 'danger');
+      } else if (msg.includes('email not confirmed')) {
+        toast('Please confirm your email address first. Check your inbox.', 'warn');
+      } else {
+        toast(error.message, 'danger');
+      }
+      resetBtn();
+      return;
+    }
+    // success — onAuthStateChange fires → handleSession() loads the app
   } catch(err) {
-    console.error('[auth] signInWithPassword threw:', err);
-    toast(err.message || 'Sign-in error', 'danger');
+    toast(err.message || 'Sign-in failed. Check your connection.', 'danger');
     resetBtn();
   }
 }
@@ -1292,11 +1341,58 @@ async function doSignup() {
   const name    = document.getElementById('signupName').value.trim();
   const email   = document.getElementById('signupEmail').value.trim();
   const password= document.getElementById('signupPassword').value;
-  if (!name || !email || !password) { toast('All fields required', 'warn'); return; }
-  const { error } = await sb.auth.signUp({ email, password, options: { data: { name } } });
-  if (error) { toast(error.message, 'danger'); return; }
-  document.getElementById('confirmEmailAddr').textContent = email;
-  showAuthPanel('confirm');
+  const confirm = document.getElementById('signupConfirm').value;
+  if (!name || !email || !password || !confirm) { toast('All fields are required', 'warn'); return; }
+  if (password.length < 6) { toast('Password must be at least 6 characters', 'warn'); return; }
+  if (password !== confirm) { toast('Passwords do not match — please re-enter', 'danger'); return; }
+  const btn = document.querySelector('#panelSignup .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
+  try {
+    const { error } = await sb.auth.signUp({ email, password, options: { data: { name } } });
+    if (error) {
+      const msg = (error.message || '').toLowerCase();
+      if (msg.includes('already registered') || msg.includes('user already exists') || msg.includes('already been registered')) {
+        toast('An account with this email already exists. Try signing in.', 'danger');
+      } else {
+        toast(error.message, 'danger');
+      }
+    } else {
+      document.getElementById('confirmEmailAddr').textContent = email;
+      showAuthPanel('confirm');
+    }
+  } catch(err) {
+    toast(err.message || 'Failed to create account. Check your connection and try again.', 'danger');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
+  }
+}
+
+async function doForgotPassword() {
+  const email = document.getElementById('forgotEmail').value.trim();
+  if (!email) { toast('Please enter your email address', 'warn'); return; }
+  const btn = document.querySelector('#panelForgot .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  try {
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+    if (error) {
+      toast(error.message, 'danger');
+    } else {
+      toast('Reset link sent — check your email inbox', 'ok');
+      showAuthPanel('login');
+    }
+  } catch(err) {
+    toast(err.message || 'Failed to send reset email. Try again.', 'danger');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Send reset link'; }
+  }
+}
+
+function togglePw(inputId, btn) {
+  const inp = document.getElementById(inputId);
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  btn.innerHTML = show ? '<svg><use href="#icon-eye-off"/></svg>' : '<svg><use href="#icon-eye"/></svg>';
+  btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
 }
 
 async function doSignOut() { _intentionalSignOut = true; await sb.auth.signOut(); }
