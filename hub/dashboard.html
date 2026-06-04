@@ -416,9 +416,8 @@
   .doc-folder-search input:focus { outline: none; border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px var(--accent-soft); }
   .doc-section-head { flex-wrap: wrap; gap: 10px; }
 
-  /* ── PDF BADGE on doc items ── */
-  .pdf-badge { background: var(--ok-soft); color: var(--ok); font-size: 0.68rem; font-weight: 700; padding: 2px 7px; border-radius: 5px; flex-shrink: 0; font-family: var(--mono); letter-spacing: 0.04em; cursor: pointer; text-decoration: none; }
-  .pdf-badge:hover { background: oklch(90% 0.05 150); }
+  /* ── SUBMITTED BADGE on doc items ── */
+  .submitted-badge { background: var(--ok-soft); color: var(--ok); font-size: 0.68rem; font-weight: 700; padding: 2px 7px; border-radius: 5px; flex-shrink: 0; font-family: var(--mono); letter-spacing: 0.04em; }
 
   /* ── SITES SECTION ── */
   .sites-section { margin-top: 8px; }
@@ -1100,7 +1099,7 @@ applyTweaks();
    │ doc_type      text  (scoping|jobcard|storeman|asbuilt)  │
    │ title         text                                      │
    │ payload       jsonb -- the actual form data             │
-   │ pdf_url       text  -- supabase storage url             │
+   │ submitted     boolean default false                     │
    │ created_at    timestamptz default now()                 │
    │ created_by    uuid references auth.users                │
    │ updated_at    timestamptz                               │
@@ -1251,27 +1250,21 @@ window.addEventListener('message', async e => {
 /* ═══════════════ SAVE_PDF HANDLER ═══════════════ */
 window.addEventListener('message', async e => {
   if (!e.data || e.data.type !== 'SAVE_PDF') return;
-  const { docId, pdfDataUri, formPayload, fileName } = e.data;
-  if (!docId || !pdfDataUri || !activeJobId) return;
+  const { docId, formPayload } = e.data;
+  if (!docId || !activeJobId) return;
   try {
-    const blob = await (await fetch(pdfDataUri)).blob();
-    const safeName = (fileName || 'document.pdf').replace(/[^a-z0-9._-]/gi, '_');
-    const path = `${activeJobId}/${docId}/${safeName}`;
-    const { error: upErr } = await sb.storage.from('job-pdfs').upload(path, blob, { contentType: 'application/pdf', upsert: true });
-    if (upErr) { console.error('PDF upload:', upErr); toast('PDF upload failed', 'danger'); return; }
-    const { data: urlData } = sb.storage.from('job-pdfs').getPublicUrl(path);
     await sb.from('documents').update({
-      pdf_url: urlData.publicUrl,
+      submitted: true,
       payload: formPayload || null,
       updated_by_name: currentUser?.name || 'Unknown',
       updated_at: new Date().toISOString()
     }).eq('id', docId);
-    await logActivity(activeJobId, 'doc_updated', `${currentUser?.name || 'User'} submitted a PDF`);
+    await logActivity(activeJobId, 'doc_updated', `${currentUser?.name || 'User'} submitted a document`);
     await sb.from('jobs').update({ updated_by_name: currentUser?.name || 'Unknown' }).eq('id', activeJobId);
-    toast('PDF saved to job folder', 'success');
+    toast('Document submitted', 'success');
   } catch (err) {
     console.error('SAVE_PDF handler error:', err);
-    toast('PDF save error: ' + (err.message || err), 'danger');
+    toast('Submit error: ' + (err.message || err), 'danger');
   }
 });
 
@@ -1816,13 +1809,6 @@ async function deleteJob() {
     'This permanently deletes the job folder, all documents, sites, photos, and activity. This cannot be undone.',
     async () => {
       try {
-        // Remove PDF files from storage
-        const { data: docs = [] } = await sb.from('documents').select('id, pdf_url').eq('job_id', activeJobId);
-        const pdfPaths = docs.filter(d => d.pdf_url).map(d => {
-          try { return new URL(d.pdf_url).pathname.replace(/^\/storage\/v1\/object\/public\/job-pdfs\//, ''); } catch { return null; }
-        }).filter(Boolean);
-        if (pdfPaths.length) await sb.storage.from('job-pdfs').remove(pdfPaths);
-
         // Remove site photos from storage and DB
         const { data: sites = [] } = await sb.from('sites').select('id').eq('job_id', activeJobId);
         for (const site of sites) {
@@ -2084,29 +2070,14 @@ async function deleteDocFromFolder(docId) {
 
 /* ═══════════════ SHARED DOC CARD RENDERER ═══════════════ */
 function renderDocTypeCard(key, def, myDocs, siteId, siteName='') {
-  const siteArg = siteId ? `'${siteId}'` : 'null';
   const itemsHtml = myDocs.length ? `
     <div class="doc-list">
-      ${myDocs.map(d => d.pdf_url ? `
-        <div class="doc-item" style="cursor:pointer;" onclick="window.open('${esc(d.pdf_url)}','_blank')" data-search="${esc((d.payload?.tplName||d.payload?.jobName||d.title||def.label)+' '+(d.updated_by_name||d.created_by_name||'')).toLowerCase()}">
-          <div class="doc-name">${esc(d.payload?.tplName || d.payload?.jobName || d.title || def.label)}</div>
-          ${(_activeJob?.wo_number || siteName || d.payload?.jobDate) ? `<div style="font-size:11px;color:var(--text3);margin:-2px 0 2px;display:flex;gap:6px;flex-wrap:wrap;">${_activeJob?.wo_number ? `<span>WO ${esc(_activeJob.wo_number)}</span>` : ''}${d.payload?.jobDate||d.payload?.date ? `<span>${esc(fmtDate(d.payload.jobDate||d.payload.date))}</span>` : ''}${siteName ? `<span>${esc(siteName)}</span>` : ''}</div>` : ''}
-          <div class="doc-row">
-            <span class="pdf-badge" onclick="event.stopPropagation();window.open('${esc(d.pdf_url)}','_blank')" style="cursor:pointer;flex-shrink:0;">PDF</span>
-            <div class="doc-row-meta">
-              <span class="by">${esc(d.updated_by_name || d.created_by_name || '—')}</span>
-              <span class="sep">·</span>
-              <span class="when">${relTime(d.updated_at)}</span>
-            </div>
-            ${['jobcard','storeman','scoping','asbuilt'].includes(key) ? `<button class="doc-action-btn edit" title="Edit document" onclick="event.stopPropagation();openDoc('${d.id}')">${ICO('icon-edit')} Edit</button>` : ''}
-            <button class="doc-action-btn danger" title="Delete" onclick="event.stopPropagation();deleteDocFromFolder('${d.id}')">${ICO('icon-trash')}</button>
-          </div>
-        </div>` : `
+      ${myDocs.map(d => `
         <div class="doc-item" style="cursor:pointer;" onclick="openDoc('${d.id}')" data-search="${esc((d.payload?.tplName||d.payload?.jobName||d.title||def.label)+' '+(d.updated_by_name||d.created_by_name||'')).toLowerCase()}">
           <div class="doc-name">${esc(d.payload?.tplName || d.payload?.jobName || d.title || def.label)}</div>
           ${(_activeJob?.wo_number || siteName || d.payload?.jobDate) ? `<div style="font-size:11px;color:var(--text3);margin:-2px 0 2px;display:flex;gap:6px;flex-wrap:wrap;">${_activeJob?.wo_number ? `<span>WO ${esc(_activeJob.wo_number)}</span>` : ''}${d.payload?.jobDate||d.payload?.date ? `<span>${esc(fmtDate(d.payload.jobDate||d.payload.date))}</span>` : ''}${siteName ? `<span>${esc(siteName)}</span>` : ''}</div>` : ''}
           <div class="doc-row">
-            <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--warn-soft);color:var(--warn);flex-shrink:0;letter-spacing:.03em;">DRAFT</span>
+            ${d.submitted ? `<span class="submitted-badge">SUBMITTED</span>` : `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--warn-soft);color:var(--warn);flex-shrink:0;letter-spacing:.03em;">DRAFT</span>`}
             <div class="doc-row-meta">
               <span class="by">${esc(d.updated_by_name || d.created_by_name || '—')}</span>
               <span class="sep">·</span>
@@ -2115,14 +2086,11 @@ function renderDocTypeCard(key, def, myDocs, siteId, siteName='') {
             <button class="doc-action-btn danger" title="Delete" onclick="event.stopPropagation();deleteDocFromFolder('${d.id}')">${ICO('icon-trash')}</button>
           </div>
         </div>`).join('')}
-    </div>` : `<div class="doc-empty">No ${def.label.toLowerCase()} yet<br><small style="font-size:0.72rem;opacity:0.65">drop a PDF anywhere on this card</small></div>`;
+    </div>` : `<div class="doc-empty">No ${def.label.toLowerCase()} yet</div>`;
 
   const createFn = siteId ? `createDoc('${key}','${siteId}')` : `createDoc('${key}')`;
   return `
-    <div class="doc-type-card ${def.cls}"
-         ondragover="event.preventDefault();event.dataTransfer.dropEffect='copy';this.classList.add('drop-over')"
-         ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('drop-over')"
-         ondrop="event.preventDefault();this.classList.remove('drop-over');handleDocPdfDrop(event.dataTransfer.files,'${key}',${siteArg})">
+    <div class="doc-type-card ${def.cls}">
       <div class="head">
         <div class="badge">${ICO(def.icon)}</div>
         <div class="title-block">
@@ -2134,10 +2102,6 @@ function renderDocTypeCard(key, def, myDocs, siteId, siteName='') {
       <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;margin-top:auto;" onclick="${createFn}">
         ${ICO('icon-plus')} New ${def.label}
       </button>
-      <label class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;margin-top:6px;cursor:pointer;">
-        ${ICO('icon-upload')} Upload PDF
-        <input type="file" accept=".pdf,application/pdf" style="display:none" onchange="if(this.files[0])uploadPdfToDoc('${key}',${siteArg},this.files[0]);this.value=''">
-      </label>
     </div>`;
 }
 
@@ -2437,44 +2401,6 @@ async function onPhotoFilesSelected(files) {
   if (successCount > 0) {
     await logActivity(activeJobId, 'doc_updated', `${currentUser.name} added ${successCount} photo${successCount>1?'s':''}`);
     toast(`${successCount} photo${successCount>1?'s':''} uploaded`, 'success');
-  }
-}
-
-/* ═══════════════ PDF UPLOAD (drag-drop / browse) ═══════════════ */
-function handleDocPdfDrop(files, key, siteId) {
-  const file = Array.from(files).find(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
-  if (!file) { toast('Drop a PDF file to upload', 'warn'); return; }
-  uploadPdfToDoc(key, siteId, file);
-}
-
-async function uploadPdfToDoc(key, siteId, file) {
-  if (!activeJobId) return;
-  const def = DOC_TYPES[key];
-  toast('Uploading PDF…');
-  try {
-    const { data: doc, error } = await sb.from('documents').insert({
-      job_id:          activeJobId,
-      doc_type:        key,
-      site_id:         siteId || null,
-      title:           file.name.replace(/\.pdf$/i, ''),
-      created_by_name: currentUser.name,
-      updated_by_name: currentUser.name,
-      created_by:      currentUser.id,
-    }).select().single();
-    if (error || !doc) throw error || new Error('Insert failed');
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const path = `${activeJobId}/${doc.id}/${Date.now()}_${safeName}`;
-    const { error: upErr } = await sb.storage.from('job-pdfs').upload(path, file, { contentType: 'application/pdf' });
-    if (upErr) { await sb.from('documents').delete().eq('id', doc.id); throw upErr; }
-    const { data: urlData } = sb.storage.from('job-pdfs').getPublicUrl(path);
-    await sb.from('documents').update({ pdf_url: urlData.publicUrl }).eq('id', doc.id);
-    await logActivity(activeJobId, 'doc_created', `${currentUser.name} uploaded a ${def.label} PDF`, doc.id);
-    await sb.from('jobs').update({ updated_by_name: currentUser.name }).eq('id', activeJobId);
-    toast(`${def.label} PDF uploaded`, 'success');
-    openJob(activeJobId);
-  } catch (err) {
-    console.error('uploadPdfToDoc error:', err);
-    toast('Upload failed: ' + (err.message || err), 'danger');
   }
 }
 
