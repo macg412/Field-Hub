@@ -16,6 +16,7 @@ jobs:
 
       - name: Build apps into hub
         run: |
+          cp src/login/index.html hub/index.html
           cp src/job-card/jobcard.html hub/apps/jobcard.html
           cp src/scoping/scoping.html hub/apps/scoping.html
           cp src/stores/storeman.html hub/apps/storeman.html
