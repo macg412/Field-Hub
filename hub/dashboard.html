@@ -1140,7 +1140,23 @@ async function initDashboard() {
 
   await renderJobLibrary();
   showScreen('screenLibrary');
+  history.replaceState({ screen: 'library' }, '');
 }
+
+/* ═══════════════ BROWSER BACK / POPSTATE ═══════════════ */
+window.addEventListener('popstate', async e => {
+  const s = e.state;
+  if (!s || s.screen === 'library') {
+    await touchDocOnExit();
+    await renderJobLibrary();
+    showScreen('screenLibrary');
+  } else if (s.screen === 'folder') {
+    await touchDocOnExit();
+    await openJob(s.jobId, { noHistory: true });
+  } else if (s.screen === 'doc') {
+    await openDoc(s.docId, { noHistory: true });
+  }
+});
 
 async function doSignOut() { await sb.auth.signOut(); }
 
@@ -1230,7 +1246,7 @@ async function logActivity(job_id, action, summary, doc_id=null) {
 /* ═══════════════ APP_DONE HANDLER ═══════════════ */
 window.addEventListener('message', e => {
   if (!e.data || e.data.type !== 'APP_DONE') return;
-  if (activeJobId) openJob(activeJobId);
+  if (activeJobId) goFolder();
 });
 
 /* ═══════════════ DRAFT_SAVE HANDLER ═══════════════ */
@@ -1766,14 +1782,14 @@ async function saveJob() {
   }
   closeJobModal();
   if (editingJobId && document.getElementById('screenFolder').classList.contains('active')) {
-    toast('Job updated', 'success'); openJob(editingJobId);
+    toast('Job updated', 'success'); openJob(editingJobId, { noHistory: true });
   } else {
     toast(editingJobId ? 'Job updated' : 'Job created', 'success'); renderJobLibrary(true);
   }
 }
 
 /* ═══════════════ JOB FOLDER ═══════════════ */
-async function openJob(jobId) {
+async function openJob(jobId, opts = {}) {
   activeJobId = jobId;
   const { data: job } = await sb.from('jobs').select('*').eq('id', jobId).single();
   if (!job) return;
@@ -1838,6 +1854,7 @@ async function openJob(jobId) {
   document.getElementById('deleteFolderBtn').style.display = currentUser?.isAdmin ? 'inline-flex' : 'none';
 
   showScreen('screenFolder');
+  if (!opts.noHistory) history.pushState({ screen: 'folder', jobId }, '');
 }
 
 async function deleteJob() {
@@ -2005,7 +2022,7 @@ async function createDoc(type, siteId = null) {
   openDoc(doc.id);
 }
 
-async function openDoc(docId) {
+async function openDoc(docId, opts = {}) {
   const { data: doc } = await sb.from('documents').select('*').eq('id', docId).single();
   if (!doc) return;
   const { data: job } = await sb.from('jobs').select('*').eq('id', doc.job_id).single();
@@ -2081,6 +2098,7 @@ async function openDoc(docId) {
   pendingDocTouch = true;
 
   showScreen('screenDoc');
+  if (!opts.noHistory) history.pushState({ screen: 'doc', jobId: activeJobId, docId }, '');
 }
 
 let pendingDocTouch = false;
@@ -2102,7 +2120,7 @@ async function deleteDocFromFolder(docId) {
     await sb.from('documents').delete().eq('id', docId);
     await logActivity(doc.job_id, 'doc_deleted', `${currentUser.name} deleted a ${DOC_TYPES[doc.doc_type].label}`, doc.id);
     toast(`${DOC_TYPES[doc.doc_type].label} deleted`, 'danger');
-    openJob(activeJobId);
+    openJob(activeJobId, { noHistory: true });
   });
 }
 
@@ -2266,7 +2284,7 @@ async function addSite() {
   await logActivity(activeJobId, 'job_updated', `${currentUser.name} added site "${name}"`);
   await sb.from('jobs').update({ updated_by_name: currentUser.name }).eq('id', activeJobId);
   toast(`${name} added`, 'success');
-  openJob(activeJobId);
+  openJob(activeJobId, { noHistory: true });
 }
 
 /* ── Rename site ── */
@@ -2300,7 +2318,7 @@ async function deleteSite(siteId) {
   jobSites = jobSites.filter(s => s.id !== siteId);
   await logActivity(activeJobId, 'job_updated', `${currentUser.name} deleted a site`);
   toast('Site deleted', 'danger');
-  openJob(activeJobId);
+  openJob(activeJobId, { noHistory: true });
 }
 
 /* ═══════════════ PHOTO GALLERY ═══════════════ */
@@ -2537,8 +2555,8 @@ function showScreen(id) {
   }
   window.scrollTo(0, 0);
 }
-async function goLibrary() { await touchDocOnExit(); renderJobLibrary(); showScreen('screenLibrary'); }
-async function goFolder()  { await touchDocOnExit(); openJob(activeJobId); }
+async function goLibrary() { await touchDocOnExit(); history.back(); }
+async function goFolder()  { await touchDocOnExit(); history.back(); }
 
 /* ═══════════════ EXPORT (placeholder) ═══════════════ */
 async function exportJob() {
