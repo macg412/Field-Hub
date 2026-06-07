@@ -1634,8 +1634,8 @@ function _invalidateJobCache() { _jobCache = null; }
 
 async function _fetchJobData() {
   const [{ data: jobs = [], error }, { data: photoRows = [] }] = await Promise.all([
-    sb.from('jobs').select('*, documents(*)'),
-    sb.from('site_photos').select('job_id')
+    sb.from('jobs').select('*, documents(*)').limit(500),
+    sb.from('site_photos').select('job_id').limit(5000)
   ]);
   if (error) { console.error('fetchJobData:', error); return null; }
   const docsByJob = {};
