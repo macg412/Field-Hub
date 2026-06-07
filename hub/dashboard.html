@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BAMValley Field Hub</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#3b5bdb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Field Hub">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -567,6 +572,9 @@
     </div>
     <div class="header-spacer"></div>
     <div class="header-right">
+      <button id="installBtn" class="btn btn-ghost btn-sm" style="display:none;" onclick="installPWA()">
+        <svg><use href="#icon-download"/></svg> Download App
+      </button>
       <button id="adminBtn" class="btn btn-ghost btn-sm" style="display:none;" onclick="openAdminPanel()">
         <svg><use href="#icon-grid"/></svg> Users
       </button>
@@ -2690,6 +2698,29 @@ async function seedIfEmpty() {
 
 /* ═══════════════ INIT ═══════════════ */
 initDashboard();
+
+/* ═══════════════ PWA ═══════════════ */
+let _pwaPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _pwaPrompt = e;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.style.display = '';
+});
+window.addEventListener('appinstalled', () => {
+  _pwaPrompt = null;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.style.display = 'none';
+});
+function installPWA() {
+  if (!_pwaPrompt) return;
+  _pwaPrompt.prompt();
+  _pwaPrompt.userChoice.then(() => { _pwaPrompt = null; });
+  document.getElementById('installBtn').style.display = 'none';
+}
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(console.error);
+}
 </script>
 </body>
 </html>

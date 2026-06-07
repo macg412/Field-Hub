@@ -1,0 +1,17 @@
+{
+  "name": "BAMValley Field Hub",
+  "short_name": "Field Hub",
+  "description": "Field documentation and job management",
+  "start_url": "/dashboard.html",
+  "display": "standalone",
+  "background_color": "#f4f5f7",
+  "theme_color": "#3b5bdb",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
