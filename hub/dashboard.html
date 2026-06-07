@@ -1246,6 +1246,20 @@ window.addEventListener('message', e => {
   if (activeJobId) goFolder();
 });
 
+/* ═══════════════ DOWNLOAD_PDF HANDLER ═══════════════ */
+window.addEventListener('message', e => {
+  if (!e.data || e.data.type !== 'DOWNLOAD_PDF') return;
+  const { pdfDataUri, fileName } = e.data;
+  if (!pdfDataUri) return;
+  const a = document.createElement('a');
+  a.style.display = 'none';
+  a.href = pdfDataUri;
+  a.download = fileName || 'StoresIssue.pdf';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+});
+
 /* ═══════════════ DRAFT_SAVE HANDLER ═══════════════ */
 window.addEventListener('message', async e => {
   if (!e.data || e.data.type !== 'DRAFT_SAVE') return;
