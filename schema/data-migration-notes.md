@@ -39,3 +39,17 @@
 - **App config** — SUPABASE_URL + anon key in Login-Page and Field-Hub repos need updating
 - **`site_photos.public_url`** — currently points to Sydney URL already (rewritten during migration); will be correct once storage objects are copied
 - **`documents.pdf_url`** — still points to Tokyo URLs; update after job-pdfs bucket is populated
+
+## JSON column migration (completed 2026-06-07)
+
+### documents.payload
+- 28 of 42 documents have payload (matches Tokyo exactly)
+- 14 documents have NULL payload (same as Tokyo — never populated)
+- All 28 transferred; large documents handled as follows:
+  - Small (<10KB): full payload transferred verbatim
+  - Forms with large photoPages/inlinePhotos (up to 19MB): fieldVals + tplId + tplName + drawData preserved; photoPages/inlinePhotos cleared to []
+  - Jobcards with signatureData (base64 PNG): all text fields preserved; signatureData/photoAdd/photoBefore/photoAfter stripped
+
+### forms JSON columns
+- field_vals, draw_data, photo_pages: fully transferred for both rows
+- inline_photos: ba241f4b had 2.1MB embedded photos — cleared to []; d145a133 had [] (already empty)
