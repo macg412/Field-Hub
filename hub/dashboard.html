@@ -1269,12 +1269,30 @@ window.addEventListener('message', async e => {
 });
 
 /* ═══════════════ PHOTO_UPLOAD HANDLER ═══════════════ */
+function compressDataUrl(dataUrl, maxDim, quality) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(c.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 window.addEventListener('message', async e => {
   if (!e.data || e.data.type !== 'PHOTO_UPLOAD') return;
   const { docId, key, dataUrl } = e.data;
   if (!docId || !key || !dataUrl || !e.source) return;
   try {
-    const res = await fetch(dataUrl);
+    const compressed = await compressDataUrl(dataUrl, 1920, 0.80);
+    const res = await fetch(compressed);
     const blob = await res.blob();
     const { error } = await sb.storage.from('doc-photos').upload(`${docId}/${key}`, blob, {
       contentType: 'image/jpeg', upsert: true,
