@@ -1251,13 +1251,19 @@ window.addEventListener('message', e => {
   if (!e.data || e.data.type !== 'DOWNLOAD_PDF') return;
   const { pdfDataUri, fileName } = e.data;
   if (!pdfDataUri) return;
+  // Convert data URI → blob → blob URL so the browser treats it as a real file download
+  const base64 = pdfDataUri.split(',')[1];
+  const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+  const blob = new Blob([bytes], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.style.display = 'none';
-  a.href = pdfDataUri;
+  a.href = url;
   a.download = fileName || 'StoresIssue.pdf';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 });
 
 /* ═══════════════ DRAFT_SAVE HANDLER ═══════════════ */
