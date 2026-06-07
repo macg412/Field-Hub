@@ -1,20 +1,59 @@
-const CACHE = 'fieldhub-v1';
-const PRECACHE = ['/dashboard.html', '/index.html', '/manifest.json', '/icon.svg'];
+const CACHE = 'fieldhub-v2';
+const STATIC = ['/dashboard.html', '/index.html', '/manifest.json', '/icon.svg',
+                '/apps/storeman.html', '/apps/jobcard.html', '/apps/scoping.html',
+                '/apps/fieldforms.html'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(CACHE)
+      .then(c => c.addAll(STATIC))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
+  const req = e.request;
+  if (req.method !== 'GET') return;
+
+  const url = new URL(req.url);
+
+  // Navigation requests: network first, fall back to dashboard or login from cache
+  if (req.mode === 'navigate') {
+    e.respondWith(
+      fetch(req).catch(() =>
+        caches.match(url.pathname === '/' || url.pathname.includes('index') ? '/index.html' : '/dashboard.html')
+      )
+    );
+    return;
+  }
+
+  // Same-origin static assets: cache first, update in background
+  if (url.hostname === self.location.hostname) {
+    e.respondWith(
+      caches.match(req).then(cached => {
+        const network = fetch(req).then(res => {
+          if (res.ok) caches.open(CACHE).then(c => c.put(req, res.clone()));
+          return res;
+        }).catch(() => cached);
+        return cached || network;
+      })
+    );
+    return;
+  }
+
+  // External requests (Supabase API, fonts, CDN): network first, cache fallback
   e.respondWith(
-    fetch(e.request).catch(() => caches.match(e.request))
+    fetch(req).then(res => {
+      if (res.ok) caches.open(CACHE).then(c => c.put(req, res.clone()));
+      return res;
+    }).catch(() => caches.match(req))
   );
 });

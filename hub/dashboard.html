@@ -60,6 +60,11 @@
   }
   button { font-family: inherit; }
 
+  /* ── OFFLINE BANNER ── */
+  #offlineBanner { display:none; background: oklch(52% 0.13 70); color:#fff; text-align:center; padding: 7px 16px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.03em; position: sticky; top: 0; z-index: 200; }
+  body.offline #offlineBanner { display: block; }
+  .offline-cached-label { display:inline-block; margin-left: 10px; background: rgba(0,0,0,0.18); border-radius: 4px; padding: 1px 7px; font-size: 0.72rem; }
+
   /* ── HEADER ── */
   header { background: rgba(255,255,255,0.85); backdrop-filter: saturate(180%) blur(14px); -webkit-backdrop-filter: saturate(180%) blur(14px); position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--line); }
   .header-inner { max-width: 1280px; margin: 0 auto; display: flex; align-items: center; padding: 14px 28px; gap: 22px; }
@@ -559,6 +564,7 @@
 <!-- ════════════════════════════════════════════════════════════════════
      HEADER
      ════════════════════════════════════════════════════════════════════ -->
+<div id="offlineBanner">No internet connection — showing cached data<span class="offline-cached-label">OFFLINE</span></div>
 <header>
   <div class="header-inner">
     <div class="brand" id="brandBack" onclick="if(document.body.classList.contains('in-app'))goFolder()">
@@ -1120,10 +1126,69 @@ applyTweaks();
    Search points are marked with ★ SUPABASE in comments.
 ═══════════════════════════════════════════════════════════════════════ */
 
+/* ── OFFLINE CACHE (IndexedDB) ── */
+const OfflineCache = (() => {
+  const DB = 'fieldhub-offline', VER = 1, STORE = 'jobs', MAX = 3;
+  let _db = null;
+  function open() {
+    if (_db) return Promise.resolve(_db);
+    return new Promise((res, rej) => {
+      const r = indexedDB.open(DB, VER);
+      r.onupgradeneeded = e => { const db = e.target.result; if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'id' }); };
+      r.onsuccess = e => { _db = e.target.result; res(_db); };
+      r.onerror = () => rej(r.error);
+    });
+  }
+  async function saveJob(jobId, data) {
+    const db = await open();
+    return new Promise((res, rej) => { const tx = db.transaction(STORE,'readwrite'); tx.objectStore(STORE).put({ id: jobId, cachedAt: Date.now(), ...data }); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+  }
+  async function getJob(jobId) {
+    const db = await open();
+    return new Promise((res, rej) => { const tx = db.transaction(STORE,'readonly'); const r = tx.objectStore(STORE).get(jobId); r.onsuccess = () => res(r.result || null); r.onerror = () => rej(r.error); });
+  }
+  async function getRecentJobs() {
+    const ids = JSON.parse(localStorage.getItem('fh_recent_jobs') || '[]');
+    const all = await Promise.all(ids.map(id => getJob(id).catch(() => null)));
+    return all.filter(Boolean);
+  }
+  function trackJob(jobId) {
+    let r = JSON.parse(localStorage.getItem('fh_recent_jobs') || '[]');
+    r = [jobId, ...r.filter(id => id !== jobId)].slice(0, MAX);
+    localStorage.setItem('fh_recent_jobs', JSON.stringify(r));
+  }
+  function saveUser(u) { localStorage.setItem('fh_user', JSON.stringify(u)); }
+  function getUser() { try { return JSON.parse(localStorage.getItem('fh_user')); } catch { return null; } }
+  return { saveJob, getJob, getRecentJobs, trackJob, saveUser, getUser };
+})();
+
+function _setOfflineMode(on) {
+  document.body.classList.toggle('offline', on);
+}
+
 /* ── AUTH STATE ── */
 let currentUser = null;
 
+function _applyUser(u) {
+  document.getElementById('userAvatar').textContent = u.initials;
+  document.getElementById('userName').textContent = u.name;
+  document.getElementById('adminBtn').style.display = u.isAdmin ? 'inline-flex' : 'none';
+}
+
 async function initDashboard() {
+  // Offline with cached user → skip network auth
+  if (!navigator.onLine) {
+    const cached = OfflineCache.getUser();
+    if (!cached) { window.location.replace('/'); return; }
+    currentUser = cached;
+    _applyUser(currentUser);
+    _setOfflineMode(true);
+    await renderJobLibrary();
+    showScreen('screenLibrary');
+    history.replaceState({ screen: 'library' }, '');
+    return;
+  }
+
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { window.location.replace('/'); return; }
 
@@ -1135,9 +1200,8 @@ async function initDashboard() {
   currentUser = { id: session.user.id, name: profile.name || session.user.email,
                   email: session.user.email, isAdmin: profile.is_admin, initials };
 
-  document.getElementById('userAvatar').textContent = currentUser.initials;
-  document.getElementById('userName').textContent = currentUser.name;
-  document.getElementById('adminBtn').style.display = currentUser.isAdmin ? 'inline-flex' : 'none';
+  _applyUser(currentUser);
+  OfflineCache.saveUser(currentUser);
 
   sb.auth.onAuthStateChange(event => {
     if (event === 'SIGNED_OUT') window.location.replace('/');
@@ -1147,6 +1211,10 @@ async function initDashboard() {
   showScreen('screenLibrary');
   history.replaceState({ screen: 'library' }, '');
 }
+
+// Handle going on/offline while app is open
+window.addEventListener('online',  () => { _setOfflineMode(false); renderJobLibrary(true); });
+window.addEventListener('offline', () => { _setOfflineMode(true);  renderJobLibrary(); });
 
 /* ═══════════════ BROWSER BACK / POPSTATE ═══════════════ */
 window.addEventListener('popstate', async e => {
@@ -1508,6 +1576,34 @@ async function renderJobLibrary(invalidateCache = false) {
 
   if (_scrollObserver) { _scrollObserver.disconnect(); _scrollObserver = null; }
 
+  // Offline: show cached jobs only
+  if (!navigator.onLine) {
+    const cached = await OfflineCache.getRecentJobs();
+    list.innerHTML = '';
+    if (meta) meta.innerHTML = `<span style="color:var(--warn);">${cached.length} cached job${cached.length !== 1 ? 's' : ''} available offline</span>`;
+    if (!cached.length) {
+      empty.innerHTML = `<div class="icon">${ICO('icon-folder')}</div><h3>No cached jobs</h3><p>Open jobs while online and they'll be available here when you lose connection.</p>`;
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+    list.innerHTML = cached.map(c => {
+      const j = c.job;
+      const docCount = (c.docs || []).length;
+      return `<div class="job-row status-${esc(j.status || 'active')}" onclick="openJob('${j.id}')">
+        <div class="job-row-main">
+          <div class="job-row-top">
+            <span class="job-wo">${esc(j.wo_number || '—')}</span>
+            <span class="job-name">${esc(j.job_name || '—')}</span>
+          </div>
+          <div class="job-row-sub">${esc(j.address || j.description || '—')} · ${docCount} doc${docCount !== 1 ? 's' : ''} · cached ${relTime(c.cachedAt)}</div>
+        </div>
+        <span class="offline-cached-label">CACHED</span>
+      </div>`;
+    }).join('');
+    return;
+  }
+
   if (!_jobCache) {
     if (meta) meta.innerHTML = '';
     empty.style.display = 'none';
@@ -1816,8 +1912,34 @@ async function saveJob() {
 /* ═══════════════ JOB FOLDER ═══════════════ */
 async function openJob(jobId, opts = {}) {
   activeJobId = jobId;
+
+  // Offline: load from IndexedDB cache
+  if (!navigator.onLine) {
+    const snap = await OfflineCache.getJob(jobId);
+    if (!snap) { toast('This job isn\'t cached for offline use', 'danger'); return; }
+    await _renderJobFolder(snap.job, snap.docs || [], snap.sites || [], snap.activity || [], opts);
+    return;
+  }
+
   const { data: job } = await sb.from('jobs').select('*').eq('id', jobId).single();
   if (!job) return;
+
+  const [{ data: docs = [] }, { data: sitesData = [] }, { data: activity = [] }] = await Promise.all([
+    sb.from('documents').select('*').eq('job_id', jobId),
+    sb.from('sites').select('*').eq('job_id', jobId).order('sort_order').order('created_at'),
+    sb.from('activity_log').select('*').eq('job_id', jobId).order('at', { ascending: false })
+  ]);
+
+  // Cache snapshot for offline use
+  OfflineCache.trackJob(jobId);
+  OfflineCache.saveJob(jobId, { job, docs, sites: sitesData, activity }).catch(() => {});
+
+  await _renderJobFolder(job, docs, sitesData, activity, opts);
+}
+
+async function _renderJobFolder(job, docs, sitesData, activity, opts = {}) {
+  const jobId = job.id;
+  activeJobId = jobId;
   _activeJob = job;
 
   document.getElementById('crumbJob').textContent = job.job_name || job.wo_number;
@@ -1828,7 +1950,6 @@ async function openJob(jobId, opts = {}) {
   if (job.job_type === 'Project') { if (job.ele_number) _secIds.push(`ELE ${job.ele_number}`); }
   document.getElementById('folderWO').textContent = `WO ${job.wo_number}${_secIds.length ? ' · ' + _secIds.join(' · ') : ''}`;
   document.getElementById('folderName').textContent = job.job_name;
-  // Fault: show description under the name; all others: show address/location
   document.getElementById('folderAddrText').textContent =
     job.job_type === 'Fault' ? (job.description || '—') : (job.address || '—');
   document.getElementById('folderStatus').innerHTML = statusTag(job.status);
@@ -1837,10 +1958,6 @@ async function openJob(jobId, opts = {}) {
   document.getElementById('folderUpdated').textContent = relTime(job.updated_at);
   document.getElementById('folderCreatedBy').textContent = job.created_by_name || '—';
 
-  const [{ data: docs = [] }, { data: sitesData = [] }] = await Promise.all([
-    sb.from('documents').select('*').eq('job_id', jobId),
-    sb.from('sites').select('*').eq('job_id', jobId).order('sort_order').order('created_at')
-  ]);
   jobSites = sitesData;
   docs.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
   document.getElementById('folderDocCount').textContent = docs.length;
@@ -1862,7 +1979,6 @@ async function openJob(jobId, opts = {}) {
   loadPhotoCountsForSites(sitesData);
 
   // Activity tab
-  const { data: activity = [] } = await sb.from('activity_log').select('*').eq('job_id', jobId).order('at', { ascending: false });
   document.getElementById('activityList').innerHTML = activity.length ? activity.map(a => `
     <div class="activity-item">
       <div class="activity-icon">${activityIcon(a.action)}</div>
@@ -1875,8 +1991,9 @@ async function openJob(jobId, opts = {}) {
   // Details tab
   _renderDetailsTab(job);
 
-  // Admin-only delete button
-  document.getElementById('deleteFolderBtn').style.display = currentUser?.isAdmin ? 'inline-flex' : 'none';
+  // Admin-only delete button (hide offline — can't confirm with server)
+  document.getElementById('deleteFolderBtn').style.display =
+    (currentUser?.isAdmin && navigator.onLine) ? 'inline-flex' : 'none';
 
   showScreen('screenFolder');
   if (!opts.noHistory) history.pushState({ screen: 'folder', jobId }, '');
