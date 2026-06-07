@@ -1268,6 +1268,26 @@ window.addEventListener('message', async e => {
   }
 });
 
+/* ═══════════════ PHOTO_UPLOAD HANDLER ═══════════════ */
+window.addEventListener('message', async e => {
+  if (!e.data || e.data.type !== 'PHOTO_UPLOAD') return;
+  const { docId, key, dataUrl } = e.data;
+  if (!docId || !key || !dataUrl || !e.source) return;
+  try {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const { error } = await sb.storage.from('doc-photos').upload(`${docId}/${key}`, blob, {
+      contentType: 'image/jpeg', upsert: true,
+    });
+    if (error) throw error;
+    const { data: { publicUrl } } = sb.storage.from('doc-photos').getPublicUrl(`${docId}/${key}`);
+    e.source.postMessage({ type: 'PHOTO_UPLOADED', key, url: publicUrl }, '*');
+  } catch (err) {
+    console.error('PHOTO_UPLOAD error:', err);
+    e.source.postMessage({ type: 'PHOTO_UPLOADED', key, url: null }, '*');
+  }
+});
+
 /* ═══════════════ STATE ═══════════════ */
 let activeFilter = 'all';
 let activeDocFilter = 'any';
