@@ -53,3 +53,19 @@
 ### forms JSON columns
 - field_vals, draw_data, photo_pages: fully transferred for both rows
 - inline_photos: ba241f4b had 2.1MB embedded photos — cleared to []; d145a133 had [] (already empty)
+
+## Storage migration (completed 2026-06-07)
+
+### Buckets created on Sydney
+- site-photos (public, 10MB)
+- job-pdfs (public, 20MB)
+- form-templates (public, 20MB, PDF only)
+- form-exports (private)
+
+### Files transferred: 72 total, 0 failures
+- form-templates: 13 PDFs
+- job-pdfs: 16 PDFs (up to 15.9MB)
+- site-photos: 43 JPGs
+
+### Post-transfer
+- documents.pdf_url: 14 URLs rewritten from rgcmisfwrflshggcwjie → idvodclpwdabfgsqniwl
