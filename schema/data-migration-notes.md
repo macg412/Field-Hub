@@ -69,3 +69,22 @@
 
 ### Post-transfer
 - documents.pdf_url: 14 URLs rewritten from rgcmisfwrflshggcwjie → idvodclpwdabfgsqniwl
+
+## Auth user migration (completed 2026-06-07)
+
+8 users inserted into auth.users on Sydney with bcrypt hashes preserved.
+session_replication_role = replica used to suppress on_auth_user_created trigger
+(profiles already exist and are correctly joined via FK).
+
+| Email | Confirmed | Admin |
+|---|---|---|
+| ben.macgeorge@downer.co.nz | yes | yes |
+| benmacgeorge93@gmail.com | yes | no |
+| gunn.pax.bellum@gmail.com | no | no |
+| ben.edwards@downer.co.nz | yes | no |
+| ross.mcmillan@downer.co.nz | yes | no |
+| alex.king1@downer.co.nz | yes | no |
+| troy.evans@downer.co.nz | yes | no |
+| hamish.mcmillan@downer.co.nz | yes | no |
+
+All users can log in with their existing passwords unchanged.
