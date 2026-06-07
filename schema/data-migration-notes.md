@@ -88,3 +88,9 @@ session_replication_role = replica used to suppress on_auth_user_created trigger
 | hamish.mcmillan@downer.co.nz | yes | no |
 
 All users can log in with their existing passwords unchanged.
+
+## Auth identities fix (2026-06-07)
+
+auth.identities was not migrated with auth.users — missing records cause 403
+on signInWithPassword. All 8 identity records copied from Tokyo.
+Migration: 14_auth_identities
