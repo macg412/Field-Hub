@@ -12,6 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root {
     --bg:           #f4f5f7;
@@ -736,6 +737,9 @@
     <div class="doc-type-grid" id="docTypeGrid">
       <!-- scoping, jobcard, storeman rendered here (job-level) -->
     </div>
+    <div id="jobPhotosSection">
+      <!-- job-level photos card rendered here -->
+    </div>
     <div class="sites-section" id="sitesList">
       <!-- site sections rendered by JS -->
     </div>
@@ -1359,8 +1363,9 @@ window.addEventListener('message', async e => {
 /* ═══════════════ SAVE_PDF HANDLER ═══════════════ */
 window.addEventListener('message', async e => {
   if (!e.data || e.data.type !== 'SAVE_PDF') return;
-  const { docId, formPayload } = e.data;
-  if (!docId || !activeJobId) return;
+  const { docId, formPayload, pdfDataUri } = e.data;
+  const jobId = activeJobId; // capture before any async/navigation resets it
+  if (!docId || !jobId) return;
   try {
     await sb.from('documents').update({
       submitted: true,
@@ -1368,8 +1373,24 @@ window.addEventListener('message', async e => {
       updated_by_name: currentUser?.name || 'Unknown',
       updated_at: new Date().toISOString()
     }).eq('id', docId);
-    await logActivity(activeJobId, 'doc_updated', `${currentUser?.name || 'User'} submitted a document`);
-    await sb.from('jobs').update({ updated_by_name: currentUser?.name || 'Unknown' }).eq('id', activeJobId);
+    await logActivity(jobId, 'doc_updated', `${currentUser?.name || 'User'} submitted a document`);
+    await sb.from('jobs').update({ updated_by_name: currentUser?.name || 'Unknown' }).eq('id', jobId);
+    // Save PDF binary to storage so it can be included in ZIP export
+    if (pdfDataUri) {
+      try {
+        const base64 = pdfDataUri.split(',')[1];
+        const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+        const blob = new Blob([bytes], { type: 'application/pdf' });
+        const pdfPath = `${jobId}/${docId}.pdf`;
+        const { error: storErr } = await sb.storage.from('job-pdfs').upload(pdfPath, blob, {
+          contentType: 'application/pdf', upsert: true
+        });
+        if (!storErr) {
+          const { data: { publicUrl } } = sb.storage.from('job-pdfs').getPublicUrl(pdfPath);
+          await sb.from('documents').update({ pdf_url: publicUrl }).eq('id', docId);
+        }
+      } catch (pdfErr) { console.error('PDF storage error:', pdfErr); }
+    }
     toast('Document submitted', 'success');
   } catch (err) {
     console.error('SAVE_PDF handler error:', err);
@@ -1973,6 +1994,10 @@ async function _renderJobFolder(job, docs, sitesData, activity, opts = {}) {
     return renderDocTypeCard(key, def, myDocs, null, '', true);
   }).join('');
 
+  // Job-level photos card
+  document.getElementById('jobPhotosSection').innerHTML = renderJobPhotosCard();
+  loadJobLevelPhotoCount();
+
   // Sites section: per-site Forms + Photos
   renderSitesInFolder(sitesData, docs);
   // Load photo counts async after render
@@ -2006,14 +2031,11 @@ async function deleteJob() {
     'This permanently deletes the job folder, all documents, sites, photos, and activity. This cannot be undone.',
     async () => {
       try {
-        // Remove site photos from storage and DB
-        const { data: sites = [] } = await sb.from('sites').select('id').eq('job_id', activeJobId);
-        for (const site of sites) {
-          const { data: photos = [] } = await sb.from('site_photos').select('storage_path').eq('site_id', site.id);
-          const photoPaths = photos.map(p => p.storage_path).filter(Boolean);
-          if (photoPaths.length) await sb.storage.from('site-photos').remove(photoPaths);
-          await sb.from('site_photos').delete().eq('site_id', site.id);
-        }
+        // Remove all photos (site-level and job-level) from storage and DB
+        const { data: allPhotos = [] } = await sb.from('site_photos').select('storage_path').eq('job_id', activeJobId);
+        const photoPaths = allPhotos.map(p => p.storage_path).filter(Boolean);
+        if (photoPaths.length) await sb.storage.from('site-photos').remove(photoPaths);
+        await sb.from('site_photos').delete().eq('job_id', activeJobId);
 
         // Delete DB records
         await sb.from('sites').delete().eq('job_id', activeJobId);
@@ -2404,6 +2426,46 @@ async function loadPhotoCountsForSites(sites) {
   }));
 }
 
+async function loadJobLevelPhotoCount() {
+  const { count } = await sb.from('site_photos')
+    .select('id', { count: 'exact', head: true })
+    .eq('job_id', activeJobId).is('site_id', null);
+  const el = document.getElementById('photos-count-job-level');
+  if (el) el.innerHTML = count
+    ? `<span class="photo-count-pill">${count} photo${count===1?'':'s'}</span>`
+    : 'No photos yet<br><small style="font-size:0.72rem;opacity:0.65">drop photos to upload</small>';
+}
+
+function renderJobPhotosCard() {
+  return `
+    <div class="doc-type-grid" style="margin-top:0;">
+      <div class="doc-type-card photos" id="photos-card-job-level">
+        <div class="head">
+          <div class="badge">${ICO('icon-camera')}</div>
+          <div class="title-block">
+            <div class="name">Job Photos</div>
+            <div class="desc">Photos not linked to a specific site</div>
+          </div>
+        </div>
+        <div class="doc-empty" id="photos-count-job-level" style="flex:1;"
+             ondragover="event.preventDefault();event.dataTransfer.dropEffect='copy';this.classList.add('drop-over')"
+             ondragleave="this.classList.remove('drop-over')"
+             ondrop="event.preventDefault();this.classList.remove('drop-over');dropPhotosOnCard(null,event.dataTransfer.files)">
+          Loading…
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:auto;">
+          <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;" onclick="openPhotoGallery(null)">
+            ${ICO('icon-photo')} View Gallery
+          </button>
+          <label class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;cursor:pointer;">
+            ${ICO('icon-plus')} Add Photos
+            <input type="file" accept="image/*" multiple style="display:none" onchange="dropPhotosOnCard(null,this.files);this.value=''">
+          </label>
+        </div>
+      </div>
+    </div>`;
+}
+
 /* ── Site toggle (expand/collapse) ── */
 function toggleSite(siteId) {
   const block = document.getElementById('site-block-' + siteId);
@@ -2465,8 +2527,12 @@ async function deleteSite(siteId) {
 /* ═══════════════ PHOTO GALLERY ═══════════════ */
 async function openPhotoGallery(siteId) {
   photoGallerySiteId = siteId;
-  const site = jobSites.find(s => s.id === siteId);
-  document.getElementById('pgSiteName').textContent = site?.name || 'Site';
+  if (siteId === null) {
+    document.getElementById('pgSiteName').textContent = 'Job Photos';
+  } else {
+    const site = jobSites.find(s => s.id === siteId);
+    document.getElementById('pgSiteName').textContent = site?.name || 'Site';
+  }
   document.getElementById('pgFileInput').value = '';
   await renderPhotoGallery();
   document.getElementById('photoGalleryModal').classList.add('show');
@@ -2474,15 +2540,20 @@ async function openPhotoGallery(siteId) {
 
 function closePhotoGallery() {
   document.getElementById('photoGalleryModal').classList.remove('show');
-  // Refresh photo counts in folder view
   loadPhotoCountsForSites(jobSites);
+  loadJobLevelPhotoCount();
 }
 
 async function renderPhotoGallery() {
   const body = document.getElementById('pgBody');
   body.innerHTML = '<div class="pg-empty"><div class="pg-spinner"></div><span style="margin-left:8px">Loading…</span></div>';
-  const { data: photos = [] } = await sb.from('site_photos').select('*')
-    .eq('site_id', photoGallerySiteId).order('sort_order').order('created_at');
+  let pgQuery = sb.from('site_photos').select('*');
+  if (photoGallerySiteId === null) {
+    pgQuery = pgQuery.eq('job_id', activeJobId).is('site_id', null);
+  } else {
+    pgQuery = pgQuery.eq('site_id', photoGallerySiteId);
+  }
+  const { data: photos = [] } = await pgQuery.order('sort_order').order('created_at');
   const dlAllBtn = document.getElementById('pgDlAllBtn');
   if (!photos.length) {
     body.innerHTML = `<div class="pg-empty">${ICO('icon-photo')}<p>No photos yet.<br>Click "Add Photos" to upload.</p></div>`;
@@ -2534,8 +2605,13 @@ async function downloadPhoto(url, caption) {
 
 async function downloadAllPhotos() {
   const btn = document.getElementById('pgDlAllBtn');
-  const { data: photos = [] } = await sb.from('site_photos').select('*')
-    .eq('site_id', photoGallerySiteId).order('sort_order').order('created_at');
+  let dlQuery = sb.from('site_photos').select('*');
+  if (photoGallerySiteId === null) {
+    dlQuery = dlQuery.eq('job_id', activeJobId).is('site_id', null);
+  } else {
+    dlQuery = dlQuery.eq('site_id', photoGallerySiteId);
+  }
+  const { data: photos = [] } = await dlQuery.order('sort_order').order('created_at');
   if (!photos.length) return;
   const orig = btn.innerHTML;
   btn.disabled = true;
@@ -2550,9 +2626,8 @@ async function downloadAllPhotos() {
 }
 
 async function onPhotoFilesSelected(files) {
-  if (!files || !files.length || !photoGallerySiteId) return;
-  const total = files.length; // capture before any async clears the FileList
-  // snapshot files into an array so they remain accessible after input reset
+  if (!files || !files.length) return;
+  const total = files.length;
   const fileArr = Array.from(files);
   const body = document.getElementById('pgBody');
   const prog = document.createElement('div');
@@ -2565,7 +2640,8 @@ async function onPhotoFilesSelected(files) {
   for (let i = 0; i < fileArr.length; i++) {
     try {
       const resized = await resizeImageForUpload(fileArr[i], 1400);
-      const path = `${activeJobId}/${photoGallerySiteId}/${sortBase}_${i}.jpg`;
+      const subfolder = photoGallerySiteId !== null ? photoGallerySiteId : 'general';
+      const path = `${activeJobId}/${subfolder}/${sortBase}_${i}.jpg`;
       const { error: upErr } = await sb.storage.from('site-photos').upload(path, resized, { contentType: 'image/jpeg' });
       if (upErr) {
         console.error('photo upload storage error:', upErr);
@@ -2613,7 +2689,8 @@ async function dropPhotosOnCard(siteId, files) {
   for (let i = 0; i < imageFiles.length; i++) {
     try {
       const resized = await resizeImageForUpload(imageFiles[i], 1400);
-      const path = `${activeJobId}/${siteId}/${sortBase}_${i}.jpg`;
+      const subfolder = siteId !== null ? siteId : 'general';
+      const path = `${activeJobId}/${subfolder}/${sortBase}_${i}.jpg`;
       const { error: upErr } = await sb.storage.from('site-photos').upload(path, resized, { contentType: 'image/jpeg' });
       if (upErr) { toast('Upload failed: ' + upErr.message, 'danger'); continue; }
       const { data: urlData } = sb.storage.from('site-photos').getPublicUrl(path);
@@ -2628,10 +2705,11 @@ async function dropPhotosOnCard(siteId, files) {
   if (successCount > 0) {
     await logActivity(activeJobId, 'doc_updated', `${currentUser.name} added ${successCount} photo${successCount > 1 ? 's' : ''}`);
     toast(`${successCount} photo${successCount > 1 ? 's' : ''} uploaded`, 'success');
-    loadPhotoCountsForSites(jobSites);
-    const galleryModal = document.getElementById('photoGalleryModal');
-    if (galleryModal.classList.contains('show') && photoGallerySiteId === siteId) renderPhotoGallery();
   }
+  loadPhotoCountsForSites(jobSites);
+  loadJobLevelPhotoCount();
+  const galleryModal = document.getElementById('photoGalleryModal');
+  if (galleryModal.classList.contains('show') && photoGallerySiteId === siteId) renderPhotoGallery();
 }
 
 async function resizeImageForUpload(file, maxPx) {
@@ -2699,19 +2777,175 @@ function showScreen(id) {
 async function goLibrary() { await touchDocOnExit(); history.back(); }
 async function goFolder()  { await touchDocOnExit(); history.back(); }
 
-/* ═══════════════ EXPORT (placeholder) ═══════════════ */
+/* ═══════════════ EXPORT HELPERS ═══════════════ */
+function getExportPdf(doc, job, sites) {
+  const def = DOC_TYPES[doc.doc_type];
+  if (!def?.app) return Promise.resolve(null);
+  const site = doc.site_id ? sites.find(s => s.id === doc.site_id) : null;
+  return new Promise(resolve => {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:800px;height:600px;opacity:0;pointer-events:none;';
+    const timer = setTimeout(() => { cleanup(); resolve(null); }, 60000);
+    const onMsg = e => {
+      if (!e.data) return;
+      if (e.data.type === 'EMBED_READY') {
+        iframe.contentWindow.postMessage({
+          type: 'EXPORT_REQUEST',
+          docId: doc.id,
+          wo: job.wo_number,
+          name: job.job_name,
+          jobType: job.job_type,
+          address: job.address,
+          description: job.description,
+          cae: job.cae_number,
+          je: job.je_number,
+          first_responder: job.first_responder,
+          second_responder: job.second_responder,
+          downer_wo_number: job.downer_wo_number,
+          ele_number: job.ele_number,
+          downer_pm: job.downer_pm,
+          powerco_pm: job.powerco_pm,
+          siteName: site?.name || '',
+          siteId: doc.site_id || null,
+          userName: currentUser?.name || '',
+          isAdmin: currentUser?.isAdmin || false,
+          payload: doc.payload
+        }, '*');
+      }
+      if (e.data.type === 'EXPORT_PDF_READY' && e.data.docId === doc.id) {
+        cleanup();
+        resolve(e.data.pdfDataUri || null);
+      }
+    };
+    const cleanup = () => {
+      window.removeEventListener('message', onMsg);
+      clearTimeout(timer);
+      iframe.remove();
+    };
+    window.addEventListener('message', onMsg);
+    document.body.appendChild(iframe);
+    iframe.src = '/' + def.app + '?t=' + Date.now();
+  });
+}
+
+async function getPdfBuffer(doc, job, sites, fetchBuf) {
+  if (doc.pdf_url) return fetchBuf(doc.pdf_url);
+  if (!doc.payload) return null;
+  const dataUri = await getExportPdf(doc, job, sites);
+  if (!dataUri) return null;
+  const b64 = dataUri.split(',')[1];
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0)).buffer;
+}
+
+/* ═══════════════ EXPORT ═══════════════ */
 async function exportJob() {
-  const { data: job }  = await sb.from('jobs').select('*').eq('id', activeJobId).single();
-  const { data: docs } = await sb.from('documents').select('*').eq('job_id', activeJobId);
-  const blob = new Blob([JSON.stringify({ job, documents: docs }, null, 2)], { type:'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${job.wo_number}_${job.job_name}.json`.replace(/[^a-z0-9._-]/gi,'_');
-  a.click();
-  URL.revokeObjectURL(url);
-  // In production, this would generate a zipped PDF pack of all docs + the metadata,
-  // and/or push to SharePoint. The shape of the data is already correct for that.
+  const exportBtn = document.querySelector('.folder-actions button[onclick="exportJob()"]');
+  const origHtml = exportBtn?.innerHTML;
+  if (exportBtn) { exportBtn.disabled = true; exportBtn.textContent = 'Preparing ZIP…'; }
+  toast('Building download package…');
+
+  try {
+    const [{ data: job }, { data: docs = [] }, { data: sites = [] }, { data: photos = [] }] = await Promise.all([
+      sb.from('jobs').select('*').eq('id', activeJobId).single(),
+      sb.from('documents').select('*').eq('job_id', activeJobId),
+      sb.from('sites').select('*').eq('job_id', activeJobId).order('sort_order').order('created_at'),
+      sb.from('site_photos').select('*').eq('job_id', activeJobId)
+    ]);
+    if (!job) throw new Error('Job not found');
+
+    const safe = s => (s || 'untitled').replace(/[/\\:*?"<>|]/g, '_').trim();
+    const rootName = safe(`WO${job.wo_number} - ${job.job_name}`);
+    const zip = new JSZip();
+    const root = zip.folder(rootName);
+
+    // Helper: fetch a URL and return an ArrayBuffer, swallowing errors
+    const fetchBuf = async url => {
+      try { return await (await fetch(url)).arrayBuffer(); }
+      catch (e) { console.warn('fetch failed:', url, e); return null; }
+    };
+
+    // Track seen names within a folder to avoid collisions
+    const uniqueName = (seen, name) => {
+      if (!seen.has(name)) { seen.add(name); return name; }
+      let n = 2;
+      while (seen.has(`${name}_${n}`)) n++;
+      const uname = `${name}_${n}`;
+      seen.add(uname);
+      return uname;
+    };
+
+    // 1. Scoping, Job Card, Stores — job-level PDFs (no site)
+    const jobLevelFolders = { scoping: 'Scoping', jobcard: 'Job Card', storeman: 'Stores' };
+    for (const [docType, folderName] of Object.entries(jobLevelFolders)) {
+      const typeDocs = docs.filter(d => d.doc_type === docType && !d.site_id && (d.pdf_url || d.payload));
+      if (!typeDocs.length) continue;
+      const folder = root.folder(folderName);
+      const seen = new Set();
+      for (const doc of typeDocs) {
+        const buf = await getPdfBuffer(doc, job, sites, fetchBuf);
+        if (buf) folder.file(uniqueName(seen, safe(doc.title)) + '.pdf', buf);
+      }
+    }
+
+    // 2. Forms — asbuilt docs, site-level (with site subfolders) or job-level
+    const formDocs = docs.filter(d => d.doc_type === 'asbuilt' && (d.pdf_url || d.payload));
+    if (formDocs.length) {
+      const formsFolder = root.folder('Forms');
+      const jobFormsSeen = new Set();
+      const siteSeenMap = new Map();
+      for (const doc of formDocs) {
+        const buf = await getPdfBuffer(doc, job, sites, fetchBuf);
+        if (!buf) continue;
+        if (doc.site_id) {
+          const site = sites.find(s => s.id === doc.site_id);
+          const siteFolderName = safe(site?.name || doc.site_id);
+          if (!siteSeenMap.has(doc.site_id)) siteSeenMap.set(doc.site_id, new Set());
+          formsFolder.folder(siteFolderName)
+            .file(uniqueName(siteSeenMap.get(doc.site_id), safe(doc.title)) + '.pdf', buf);
+        } else {
+          formsFolder.file(uniqueName(jobFormsSeen, safe(doc.title)) + '.pdf', buf);
+        }
+      }
+    }
+
+    // 3. Photos — job-level (no site) and site-level (with site subfolders)
+    if (photos.length) {
+      const photosFolder = root.folder('Photos');
+      const jobPhotosSeen = new Set();
+      const jobPhotos = photos.filter(p => !p.site_id);
+      for (const p of jobPhotos) {
+        const buf = await fetchBuf(p.public_url);
+        if (buf) photosFolder.file(uniqueName(jobPhotosSeen, safe(p.caption || `photo_${p.id}`)) + '.jpg', buf);
+      }
+      for (const site of sites) {
+        const sitePhotos = photos.filter(p => p.site_id === site.id);
+        if (!sitePhotos.length) continue;
+        const siteFolder = photosFolder.folder(safe(site.name));
+        const siteSeen = new Set();
+        for (const p of sitePhotos) {
+          const buf = await fetchBuf(p.public_url);
+          if (buf) siteFolder.file(uniqueName(siteSeen, safe(p.caption || `photo_${p.id}`)) + '.jpg', buf);
+        }
+      }
+    }
+
+    const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+    const dlUrl = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = dlUrl;
+    a.download = rootName + '.zip';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(dlUrl), 60000);
+
+    const pdfCount = docs.filter(d => d.pdf_url || d.payload).length;
+    const photoCount = photos.length;
+    toast(`Downloaded ${rootName}.zip (${pdfCount} PDF${pdfCount!==1?'s':''}, ${photoCount} photo${photoCount!==1?'s':''})`, 'success');
+  } catch (err) {
+    console.error('exportJob error:', err);
+    toast('Export failed: ' + (err.message || err), 'danger');
+  } finally {
+    if (exportBtn) { exportBtn.disabled = false; exportBtn.innerHTML = origHtml; }
+  }
 }
 
 /* ═══════════════ CONFIRM MODAL ═══════════════ */
