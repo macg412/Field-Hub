@@ -727,40 +727,20 @@
 
   <!-- DOCUMENTS TAB -->
   <div class="tab-panel active" id="tabDocs">
-    <div style="margin-bottom:16px;display:flex;flex-direction:column;gap:10px;">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <h3 style="font-size:0.92rem;font-weight:600;color:var(--ink);letter-spacing:-0.01em;font-family:var(--mono);text-transform:uppercase;white-space:nowrap;">Paperwork <span class="count" id="docTotalCount"></span></h3>
-        <div class="doc-folder-search" style="flex:1;margin-bottom:0;">
-          <svg><use href="#icon-search"/></svg>
-          <input type="text" id="docFolderSearch" placeholder="Search documents, sites…" oninput="applyFolderFilters()" style="padding-right:36px;">
-          <button id="folderSearchClear" onclick="clearFolderFilters()" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--ink-4);font-size:18px;line-height:1;padding:2px 4px;" title="Clear filters">✕</button>
-        </div>
-        <select id="folderSort" class="filter-chip" style="cursor:pointer;min-width:130px;" onchange="applyFolderFilters()">
-          <option value="updated">Newest first</option>
-          <option value="oldest">Oldest first</option>
-          <option value="name">Name A–Z</option>
-        </select>
-      </div>
-      <div class="doc-filter-row" style="flex-wrap:wrap;gap:6px;">
-        <span class="lbl">Type</span>
-        <button class="filter-chip active" data-ftype="all" onclick="setFolderTypeFilter(this)">All</button>
-        <button class="filter-chip" data-ftype="scoping" onclick="setFolderTypeFilter(this)"><svg style="width:12px;height:12px;"><use href="#icon-clipboard"/></svg> Scoping</button>
-        <button class="filter-chip" data-ftype="jobcard" onclick="setFolderTypeFilter(this)"><svg style="width:12px;height:12px;"><use href="#icon-doc"/></svg> Job Card</button>
-        <button class="filter-chip" data-ftype="storeman" onclick="setFolderTypeFilter(this)"><svg style="width:12px;height:12px;"><use href="#icon-box"/></svg> Stores</button>
-        <button class="filter-chip" data-ftype="asbuilt" onclick="setFolderTypeFilter(this)"><svg style="width:12px;height:12px;"><use href="#icon-check"/></svg> Forms</button>
-      </div>
-      <div class="doc-filter-row" style="flex-wrap:wrap;gap:6px;">
-        <span class="lbl">Status</span>
-        <button class="filter-chip active" data-fstatus="all" onclick="setFolderStatusFilter(this)">All</button>
-        <button class="filter-chip" data-fstatus="draft" onclick="setFolderStatusFilter(this)">Draft</button>
-        <button class="filter-chip" data-fstatus="submitted" onclick="setFolderStatusFilter(this)">Submitted</button>
-      </div>
+    <div class="doc-section-head">
+      <h3>Paperwork <span class="count" id="docTotalCount"></span></h3>
     </div>
     <div class="doc-type-grid" id="docTypeGrid">
       <!-- scoping, jobcard, storeman rendered here (job-level) -->
     </div>
     <div id="jobPhotosSection">
       <!-- job-level photos card rendered here -->
+    </div>
+    <div id="siteSearchWrap" style="display:none;margin:4px 0 14px;">
+      <div class="doc-folder-search" style="margin-bottom:0;">
+        <svg><use href="#icon-search"/></svg>
+        <input type="text" id="siteSearch" placeholder="Search sites…" oninput="filterSites(this.value)">
+      </div>
     </div>
     <div class="sites-section" id="sitesList">
       <!-- site sections rendered by JS -->
@@ -2005,7 +1985,8 @@ async function _renderJobFolder(job, docs, sitesData, activity, opts = {}) {
   docs.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
   document.getElementById('folderDocCount').textContent = docs.length;
   document.getElementById('docTotalCount').textContent = docs.length ? `(${docs.length} total)` : '';
-  clearFolderFilters();
+  const si = document.getElementById('siteSearch');
+  if (si) { si.value = ''; filterSites(''); }
 
   // Job-level row: scoping, jobcard, storeman (no site)
   const JOB_LEVEL = ['scoping', 'jobcard', 'storeman'];
@@ -2352,6 +2333,10 @@ function renderDocTypeCard(key, def, myDocs, siteId, siteName='', singleton=fals
 function renderSitesInFolder(sites, docs) {
   const container = document.getElementById('sitesList');
   if (!container) return;
+  const wrap = document.getElementById('siteSearchWrap');
+  const si = document.getElementById('siteSearch');
+  if (wrap) wrap.style.display = sites.length > 0 ? '' : 'none';
+  if (si) si.value = '';
 
   const sitesHtml = sites.map(site => {
     const siteDocs = docs.filter(d => d.site_id === site.id);
@@ -2772,100 +2757,12 @@ function pgMetaDebounce(photoId, captionEl, notesEl) {
   }, 600);
 }
 
-/* ═══════════════ DOCUMENT SEARCH + FILTER IN FOLDER ═══════════════ */
-let _folderTypeFilter = 'all';
-let _folderStatusFilter = 'all';
-
-function setFolderTypeFilter(btn) {
-  document.querySelectorAll('[data-ftype]').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  _folderTypeFilter = btn.dataset.ftype;
-  applyFolderFilters();
-}
-
-function setFolderStatusFilter(btn) {
-  document.querySelectorAll('[data-fstatus]').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  _folderStatusFilter = btn.dataset.fstatus;
-  applyFolderFilters();
-}
-
-function clearFolderFilters() {
-  const inp = document.getElementById('docFolderSearch');
-  if (inp) inp.value = '';
-  _folderTypeFilter = 'all';
-  _folderStatusFilter = 'all';
-  const sortEl = document.getElementById('folderSort');
-  if (sortEl) sortEl.value = 'updated';
-  document.querySelectorAll('[data-ftype]').forEach(b => b.classList.toggle('active', b.dataset.ftype === 'all'));
-  document.querySelectorAll('[data-fstatus]').forEach(b => b.classList.toggle('active', b.dataset.fstatus === 'all'));
-  const clearBtn = document.getElementById('folderSearchClear');
-  if (clearBtn) clearBtn.style.display = 'none';
-  applyFolderFilters();
-}
-
-function applyFolderFilters() {
-  const q = (document.getElementById('docFolderSearch')?.value || '').toLowerCase().trim();
-  const typeF = _folderTypeFilter;
-  const statusF = _folderStatusFilter;
-  const sort = document.getElementById('folderSort')?.value || 'updated';
-  const hasActive = q || typeF !== 'all' || statusF !== 'all' || sort !== 'updated';
-  const clearBtn = document.getElementById('folderSearchClear');
-  if (clearBtn) clearBtn.style.display = hasActive ? '' : 'none';
-
-  // Show/hide doc-type-cards by type; filter items within visible cards
-  document.querySelectorAll('.doc-type-card').forEach(card => {
-    const cardType = [...card.classList].find(c => DOC_TYPES[c]);
-    if (!cardType) { card.style.display = ''; return; }
-    if (typeF !== 'all' && typeF !== cardType) { card.style.display = 'none'; return; }
-    card.style.display = '';
-    card.querySelectorAll('.doc-item').forEach(item => {
-      const text = item.dataset.search || item.textContent.toLowerCase();
-      const status = item.dataset.status || '';
-      item.style.display = ((!q || text.includes(q)) && (statusF === 'all' || status === statusF)) ? '' : 'none';
-    });
-    card.querySelectorAll('.doc-list').forEach(list => {
-      list.style.display = [...list.querySelectorAll('.doc-item')].some(el => el.style.display !== 'none') ? '' : 'none';
-    });
-  });
-
-  // Site blocks: hide for job-level type filters; match by site name or visible content
-  const jobLevelOnly = ['scoping', 'jobcard', 'storeman'].includes(typeF);
+/* ═══════════════ SITE SEARCH IN FOLDER ═══════════════ */
+function filterSites(q) {
+  const lower = (q || '').toLowerCase().trim();
   document.querySelectorAll('.site-block').forEach(block => {
-    if (jobLevelOnly) { block.style.display = 'none'; return; }
-    const siteName = (block.dataset.siteName || '').toLowerCase();
-    const siteNameMatch = !q || siteName.includes(q);
-    // If site name matched the query, override text filter on its items
-    if (siteNameMatch && q) {
-      block.querySelectorAll('.doc-item').forEach(item => {
-        const status = item.dataset.status || '';
-        if (statusF === 'all' || status === statusF) item.style.display = '';
-      });
-      block.querySelectorAll('.doc-list').forEach(list => {
-        if ([...list.querySelectorAll('.doc-item')].some(el => el.style.display !== 'none')) list.style.display = '';
-      });
-      block.querySelectorAll('.doc-type-card').forEach(card => {
-        if (card.style.display !== 'none') card.style.display = '';
-      });
-      // Auto-expand matched site
-      block.classList.remove('collapsed');
-      const id = block.id.replace('site-block-', '');
-      const body = document.getElementById('site-body-' + id);
-      if (body) body.style.display = '';
-    }
-    const hasVisible = [...block.querySelectorAll('.doc-type-card')].some(c => c.style.display !== 'none');
-    block.style.display = (siteNameMatch || hasVisible) ? '' : 'none';
-  });
-
-  // Sort within each doc-list
-  document.querySelectorAll('.doc-list').forEach(list => {
-    const items = [...list.querySelectorAll('.doc-item')];
-    items.sort((a, b) => {
-      if (sort === 'name') return (a.querySelector('.doc-name')?.textContent || '').localeCompare(b.querySelector('.doc-name')?.textContent || '');
-      if (sort === 'oldest') return (a.dataset.date || '').localeCompare(b.dataset.date || '');
-      return (b.dataset.date || '').localeCompare(a.dataset.date || '');
-    });
-    items.forEach(el => list.appendChild(el));
+    const name = (block.dataset.siteName || '').toLowerCase();
+    block.style.display = (!lower || name.includes(lower)) ? '' : 'none';
   });
 }
 
