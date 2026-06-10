@@ -1373,7 +1373,8 @@ window.addEventListener('message', async e => {
       submitted: true,
       payload: formPayload || null,
       updated_by_name: currentUser?.name || 'Unknown',
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
+      submitted_at: new Date().toISOString(),
     }).eq('id', docId);
     await logActivity(jobId, 'doc_updated', `${currentUser?.name || 'User'} submitted a document`);
     await sb.from('jobs').update({ updated_by_name: currentUser?.name || 'Unknown' }).eq('id', jobId);
@@ -2306,7 +2307,7 @@ function renderDocTypeCard(key, def, myDocs, siteId, siteName='', singleton=fals
                 ? `<span class="by">${esc(d.created_by_name)}</span><span class="sep">→</span><span class="by">${esc(d.updated_by_name)}</span>`
                 : `<span class="by">${esc(d.updated_by_name || d.created_by_name || '—')}</span>`}
               <span class="sep">·</span>
-              <span class="when">${relTime(d.updated_at)}</span>
+              <span class="when">${relTime(d.submitted ? (d.submitted_at || d.updated_at) : d.updated_at)}</span>
             </div>
             <button class="doc-action-btn danger" title="Delete" onclick="event.stopPropagation();deleteDocFromFolder('${d.id}')">${ICO('icon-trash')}</button>
           </div>
