@@ -2300,7 +2300,7 @@ function renderDocTypeCard(key, def, myDocs, siteId, siteName='', singleton=fals
           <div class="doc-name">${esc(d.payload?.tplName || d.payload?.jobName || d.title || def.label)}</div>
           ${(_activeJob?.wo_number || siteName || d.payload?.jobDate) ? `<div style="font-size:11px;color:var(--text3);margin:-2px 0 2px;display:flex;gap:6px;flex-wrap:wrap;">${_activeJob?.wo_number ? `<span>WO ${esc(_activeJob.wo_number)}</span>` : ''}${d.payload?.jobDate||d.payload?.date ? `<span>${esc(fmtDate(d.payload.jobDate||d.payload.date))}</span>` : ''}${siteName ? `<span>${esc(siteName)}</span>` : ''}</div>` : ''}
           <div class="doc-row">
-            ${d.submitted ? `<span class="submitted-badge">SUBMITTED</span>` : `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--warn-soft);color:var(--warn);flex-shrink:0;letter-spacing:.03em;">DRAFT</span>`}
+            ${d.submitted ? `<span class="submitted-badge">SUBMITTED · ${esc(d.updated_by_name || d.created_by_name || '?')}</span>` : `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--warn-soft);color:var(--warn);flex-shrink:0;letter-spacing:.03em;">DRAFT</span>`}
             <div class="doc-row-meta">
               ${(d.created_by_name && d.updated_by_name && d.created_by_name !== d.updated_by_name)
                 ? `<span class="by">${esc(d.created_by_name)}</span><span class="sep">→</span><span class="by">${esc(d.updated_by_name)}</span>`
