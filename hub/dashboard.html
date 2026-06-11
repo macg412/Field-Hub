@@ -2339,7 +2339,12 @@ function renderSitesInFolder(sites, docs) {
   if (wrap) wrap.style.display = sites.length > 0 ? '' : 'none';
   if (si) si.value = '';
 
-  const sitesHtml = sites.map(site => {
+  const many = sites.length > 5;
+  const orderedSites = many
+    ? [...sites].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    : sites;
+
+  const sitesHtml = orderedSites.map(site => {
     const siteDocs = docs.filter(d => d.site_id === site.id);
 
     // Forms card (FieldForms launcher) — uses createDoc flow so docId is sent
@@ -2370,12 +2375,12 @@ function renderSitesInFolder(sites, docs) {
       </div>`;
   }).join('');
 
+  const addBtn = `<button class="add-site-btn" onclick="addSite()">${ICO('icon-plus')} Add Site</button>`;
+
   container.innerHTML = (sites.length ? `
     <div class="sites-divider"><span>Sites</span></div>
-    ${sitesHtml}` : '') + `
-    <button class="add-site-btn" onclick="addSite()">
-      ${ICO('icon-plus')} Add Site
-    </button>`;
+    ${many ? addBtn : ''}
+    ${sitesHtml}` : '') + addBtn;
 }
 
 function renderFormsCard(site) {
