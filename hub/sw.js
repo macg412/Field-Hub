@@ -1,4 +1,4 @@
-const CACHE = 'fieldhub-v2';
+const CACHE = 'fieldhub-v3';
 const STATIC = ['/dashboard.html', '/index.html', '/manifest.json', '/icon.svg',
                 '/apps/storeman.html', '/apps/jobcard.html', '/apps/scoping.html',
                 '/apps/fieldforms.html'];
@@ -49,11 +49,21 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // External requests (Supabase API, fonts, CDN): network first, cache fallback
+  // Supabase API: never cache — responses are large data blobs that change constantly.
+  // Offline data is handled by IndexedDB OfflineCache in dashboard.html.
+  if (url.hostname.includes('supabase.co')) {
+    e.respondWith(fetch(req).catch(() => caches.match(req) || Response.error()));
+    return;
+  }
+
+  // External CDN (fonts, scripts): cache-first to support offline
   e.respondWith(
-    fetch(req).then(res => {
-      if (res.ok) caches.open(CACHE).then(c => c.put(req, res.clone()));
-      return res;
-    }).catch(() => caches.match(req))
+    caches.match(req).then(cached => {
+      if (cached) return cached;
+      return fetch(req).then(res => {
+        if (res.ok) caches.open(CACHE).then(c => c.put(req, res.clone()));
+        return res;
+      }).catch(() => Response.error());
+    })
   );
 });

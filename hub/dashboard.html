@@ -1451,6 +1451,9 @@ let editingJobId = null; // null = creating; otherwise editing
 let jobSites = []; // sites loaded for current open job
 let photoGallerySiteId = null; // site whose gallery is open
 const _pgMetaTimers = {}; // debounce timers for photo meta saves
+const PG_PAGE_SIZE = 60; // photos shown per page in gallery
+let _pgAllPhotos = []; // all photo metadata for current gallery
+let _pgShownCount = 0; // how many are currently rendered
 
 /* ═══════════════ JOB LIBRARY ═══════════════ */
 /* ── JOB LIBRARY CACHE + PAGINATION ── */
@@ -1464,9 +1467,10 @@ let _scrollObserver  = null;
 function _invalidateJobCache() { _jobCache = null; }
 
 async function _fetchJobData() {
+  // documents: skip payload (large JSON blobs) — library only needs type/site for pill counts
   const [{ data: jobs = [], error }, { data: photoRows = [] }] = await Promise.all([
-    sb.from('jobs').select('*, documents(*)').limit(500),
-    sb.from('site_photos').select('job_id').limit(5000)
+    sb.from('jobs').select('*, documents(id, doc_type, site_id)').limit(1000),
+    sb.from('site_photos').select('job_id')
   ]);
   if (error) { console.error('fetchJobData:', error); return null; }
   const docsByJob = {};
@@ -1948,10 +1952,11 @@ async function openJob(jobId, opts = {}) {
   const { data: job } = await sb.from('jobs').select('*').eq('id', jobId).single();
   if (!job) return;
 
+  // Skip payload (large JSON) in folder view — it's fetched on demand in openDoc()
   const [{ data: docs = [] }, { data: sitesData = [] }, { data: activity = [] }] = await Promise.all([
-    sb.from('documents').select('*').eq('job_id', jobId),
+    sb.from('documents').select('id, job_id, site_id, doc_type, title, submitted, submitted_at, created_at, updated_at, created_by_name, updated_by_name').eq('job_id', jobId),
     sb.from('sites').select('*').eq('job_id', jobId).order('sort_order').order('created_at'),
-    sb.from('activity_log').select('*').eq('job_id', jobId).order('at', { ascending: false })
+    sb.from('activity_log').select('*').eq('job_id', jobId).order('at', { ascending: false }).limit(50)
   ]);
 
   // Cache snapshot for offline use
@@ -2559,9 +2564,51 @@ function closePhotoGallery() {
   loadJobLevelPhotoCount();
 }
 
+function _pgCardHtml(p) {
+  return `
+    <div class="pg-card">
+      <div class="pg-img-wrap">
+        <img src="${esc(p.public_url)}" alt="${esc(p.caption||'Photo')}" loading="lazy" onclick="pgLightbox('${esc(p.public_url)}')">
+        <button class="pg-dl" onclick="downloadPhoto('${esc(p.public_url)}','${esc(p.caption||'photo')}')" title="Download photo">${ICO('icon-download')}</button>
+        <button class="pg-del" onclick="deletePhoto('${p.id}')" title="Delete photo">${ICO('icon-trash')}</button>
+      </div>
+      <div class="pg-meta">
+        <input class="pg-caption" placeholder="Caption / name" value="${esc(p.caption||'')}" maxlength="120"
+               oninput="pgMetaDebounce('${p.id}', this, null)">
+        <textarea class="pg-notes" placeholder="Notes (optional)" maxlength="500"
+                  oninput="pgMetaDebounce('${p.id}', null, this)">${esc(p.notes||'')}</textarea>
+      </div>
+    </div>`;
+}
+
+function _pgAppendBatch() {
+  const body = document.getElementById('pgBody');
+  let grid = body.querySelector('.pg-grid');
+  if (!grid) { grid = document.createElement('div'); grid.className = 'pg-grid'; body.appendChild(grid); }
+
+  const sentinel = body.querySelector('.pg-load-more');
+  if (sentinel) sentinel.remove();
+
+  const batch = _pgAllPhotos.slice(_pgShownCount, _pgShownCount + PG_PAGE_SIZE);
+  grid.insertAdjacentHTML('beforeend', batch.map(_pgCardHtml).join(''));
+  _pgShownCount += batch.length;
+
+  if (_pgShownCount < _pgAllPhotos.length) {
+    body.insertAdjacentHTML('beforeend',
+      `<div class="pg-load-more" style="text-align:center;padding:16px 0;">
+        <button class="btn btn-secondary btn-sm" onclick="_pgAppendBatch()">
+          Load more (${_pgAllPhotos.length - _pgShownCount} remaining)
+        </button>
+       </div>`);
+  }
+}
+
 async function renderPhotoGallery() {
   const body = document.getElementById('pgBody');
   body.innerHTML = '<div class="pg-empty"><div class="pg-spinner"></div><span style="margin-left:8px">Loading…</span></div>';
+  _pgAllPhotos = [];
+  _pgShownCount = 0;
+
   let pgQuery = sb.from('site_photos').select('*');
   if (photoGallerySiteId === null) {
     pgQuery = pgQuery.eq('job_id', activeJobId).is('site_id', null);
@@ -2569,30 +2616,18 @@ async function renderPhotoGallery() {
     pgQuery = pgQuery.eq('site_id', photoGallerySiteId);
   }
   const { data: photos = [] } = await pgQuery.order('sort_order').order('created_at');
+
   const dlAllBtn = document.getElementById('pgDlAllBtn');
   if (!photos.length) {
     body.innerHTML = `<div class="pg-empty">${ICO('icon-photo')}<p>No photos yet.<br>Click "Add Photos" to upload.</p></div>`;
     if (dlAllBtn) dlAllBtn.style.display = 'none';
     return;
   }
+
+  _pgAllPhotos = photos;
   if (dlAllBtn) { dlAllBtn.style.display = ''; dlAllBtn.dataset.count = photos.length; }
-  body.innerHTML = `
-    <div class="pg-grid">
-      ${photos.map((p, i) => `
-        <div class="pg-card">
-          <div class="pg-img-wrap">
-            <img src="${esc(p.public_url)}" alt="${esc(p.caption||'Photo')}" onclick="pgLightbox('${esc(p.public_url)}')">
-            <button class="pg-dl" onclick="downloadPhoto('${esc(p.public_url)}','${esc(p.caption||'photo')}')" title="Download photo">${ICO('icon-download')}</button>
-            <button class="pg-del" onclick="deletePhoto('${p.id}')" title="Delete photo">${ICO('icon-trash')}</button>
-          </div>
-          <div class="pg-meta">
-            <input class="pg-caption" placeholder="Caption / name" value="${esc(p.caption)}" maxlength="120"
-                   oninput="pgMetaDebounce('${p.id}', this, null)">
-            <textarea class="pg-notes" placeholder="Notes (optional)" maxlength="500"
-                      oninput="pgMetaDebounce('${p.id}', null, this)">${esc(p.notes)}</textarea>
-          </div>
-        </div>`).join('')}
-    </div>`;
+  body.innerHTML = '<div class="pg-grid"></div>';
+  _pgAppendBatch();
 }
 
 function pgLightbox(url) {
