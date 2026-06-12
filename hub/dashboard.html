@@ -1952,9 +1952,8 @@ async function openJob(jobId, opts = {}) {
   const { data: job } = await sb.from('jobs').select('*').eq('id', jobId).single();
   if (!job) return;
 
-  // Skip payload (large JSON) in folder view — it's fetched on demand in openDoc()
   const [{ data: docs = [] }, { data: sitesData = [] }, { data: activity = [] }] = await Promise.all([
-    sb.from('documents').select('id, job_id, site_id, doc_type, title, submitted, submitted_at, created_at, updated_at, created_by_name, updated_by_name').eq('job_id', jobId),
+    sb.from('documents').select('*').eq('job_id', jobId),
     sb.from('sites').select('*').eq('job_id', jobId).order('sort_order').order('created_at'),
     sb.from('activity_log').select('*').eq('job_id', jobId).order('at', { ascending: false }).limit(50)
   ]);
