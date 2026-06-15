@@ -2149,6 +2149,7 @@ async function openFormLibrary(siteId) {
     type:     'FORM_REQUEST',
     wo:       job.wo_number,
     name:     job.job_name,
+    jobType:  job.job_type || '',
     siteName: site ? site.name : '',
     siteId:   siteId || null,
     userName: currentUser.name,
@@ -2244,6 +2245,7 @@ async function openDoc(docId, opts = {}) {
     siteId:           doc.site_id || null,
     siteName:         doc.site_id ? (jobSites.find(s => s.id === doc.site_id)?.name || '') : '',
     userName:         currentUser.name,
+    isAdmin:          currentUser.is_admin || false,
     payload:          doc.payload || null,
   };
 
