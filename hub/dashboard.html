@@ -2153,7 +2153,7 @@ async function openFormLibrary(siteId) {
     siteName: site ? site.name : '',
     siteId:   siteId || null,
     userName: currentUser.name,
-    isAdmin:  currentUser.is_admin || false,
+    isAdmin:  currentUser.isAdmin || false,
   };
 
   const onReady = (e) => {
@@ -2245,7 +2245,7 @@ async function openDoc(docId, opts = {}) {
     siteId:           doc.site_id || null,
     siteName:         doc.site_id ? (jobSites.find(s => s.id === doc.site_id)?.name || '') : '',
     userName:         currentUser.name,
-    isAdmin:          currentUser.is_admin || false,
+    isAdmin:          currentUser.isAdmin || false,
     payload:          doc.payload || null,
   };
 
