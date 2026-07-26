@@ -2003,7 +2003,7 @@ async function _renderJobFolder(job, docs, sitesData, activity, opts = {}) {
   grid.innerHTML = JOB_LEVEL.map(key => {
     const def = DOC_TYPES[key];
     const myDocs = docs.filter(d => d.doc_type === key && !d.site_id);
-    return renderDocTypeCard(key, def, myDocs, null, '', key !== 'jobcard');
+    return renderDocTypeCard(key, def, myDocs, null, '', key === 'scoping');
   }).join('');
 
   // Sites section: per-site Forms + Photos
