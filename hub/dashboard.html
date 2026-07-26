@@ -1940,12 +1940,18 @@ async function saveJob() {
 /* ═══════════════ JOB FOLDER ═══════════════ */
 async function openJob(jobId, opts = {}) {
   activeJobId = jobId;
+  // noHistory calls are in-place refreshes after an action (add/delete site, delete doc, etc.)
+  // rather than a fresh navigation into the job folder — keep the user's scroll position for those.
+  const preserveScroll = !!opts.noHistory;
+  const savedScrollY = window.scrollY;
+  const restoreScroll = () => { if (preserveScroll) requestAnimationFrame(() => window.scrollTo(0, savedScrollY)); };
 
   // Offline: load from IndexedDB cache
   if (!navigator.onLine) {
     const snap = await OfflineCache.getJob(jobId);
     if (!snap) { toast('This job isn\'t cached for offline use', 'danger'); return; }
     await _renderJobFolder(snap.job, snap.docs || [], snap.sites || [], snap.activity || [], opts);
+    restoreScroll();
     return;
   }
 
@@ -1963,6 +1969,7 @@ async function openJob(jobId, opts = {}) {
   OfflineCache.saveJob(jobId, { job, docs, sites: sitesData, activity }).catch(() => {});
 
   await _renderJobFolder(job, docs, sitesData, activity, opts);
+  restoreScroll();
 }
 
 async function _renderJobFolder(job, docs, sitesData, activity, opts = {}) {
