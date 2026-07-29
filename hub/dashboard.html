@@ -1346,17 +1346,27 @@ window.addEventListener('message', e => {
 });
 
 /* ═══════════════ DRAFT_SAVE HANDLER ═══════════════ */
+// The app waits for this acknowledgement before it will claim a draft is
+// saved, so every path here must report back — including the failures.
 window.addEventListener('message', async e => {
   if (!e.data || e.data.type !== 'DRAFT_SAVE') return;
-  const { docId, payload } = e.data;
+  const { docId, payload, seq } = e.data;
   if (!docId) return;
+  const reply = (ok, error) => {
+    if (e.source) e.source.postMessage({ type: 'DRAFT_SAVED', docId, seq, ok, error }, '*');
+  };
   try {
-    await sb.from('documents').update({
+    const { error } = await sb.from('documents').update({
       payload: payload || null,
       updated_by_name: currentUser?.name || 'Unknown',
       updated_at: new Date().toISOString(),
     }).eq('id', docId);
-  } catch (err) { console.error('DRAFT_SAVE error:', err); }
+    if (error) throw error;
+    reply(true);
+  } catch (err) {
+    console.error('DRAFT_SAVE error:', err);
+    reply(false, err?.message || String(err));
+  }
 });
 
 /* ═══════════════ SAVE_PDF HANDLER ═══════════════ */
@@ -2242,9 +2252,11 @@ async function openDoc(docId, opts = {}) {
     downer_pm:        job.downer_pm,
     powerco_pm:       job.powerco_pm,
     docId:            doc.id,
+    jobId:            doc.job_id,
     siteId:           doc.site_id || null,
     siteName:         doc.site_id ? (jobSites.find(s => s.id === doc.site_id)?.name || '') : '',
     userName:         currentUser.name,
+    userId:           currentUser.id,
     isAdmin:          currentUser.isAdmin || false,
     payload:          doc.payload || null,
   };
