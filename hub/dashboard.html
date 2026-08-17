@@ -178,6 +178,7 @@
   .job-main { min-width: 0; }
   .job-wo { font-family: var(--mono); font-size: 0.78rem; font-weight: 600; color: var(--ink-3); letter-spacing: 0.04em; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .job-wo .sep { color: var(--ink-5); }
+  .job-wo .je  { color: var(--ink-3); }
   .job-wo .cae { color: var(--ink-4); }
   .job-name { font-size: 1.02rem; font-weight: 600; color: var(--ink); letter-spacing: -0.018em; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .job-addr { font-size: 0.84rem; color: var(--ink-4); margin-top: 4px; display: flex; align-items: center; gap: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -849,15 +850,16 @@
           <input type="date" id="jDate">
         </div>
 
-        <!-- CAE # and JE # side-by-side (Fault only) -->
+        <!-- JE # and CAE # side-by-side (Fault only) — JE # leads, it matters more -->
         <div class="field-row" id="jRowCAEJE" hidden>
+          <div class="field">
+            <label>JE #<span id="jJEReq"> *</span></label>
+            <input type="text" id="jJE" placeholder="26018494" maxlength="12" autocomplete="off">
+            <div class="field-hint" id="jJEHint">8 digits, with or without the JE prefix</div>
+          </div>
           <div class="field">
             <label>CAE #</label>
             <input type="text" id="jCAE" placeholder="Optional" autocomplete="off">
-          </div>
-          <div class="field">
-            <label>JE #</label>
-            <input type="text" id="jJE" placeholder="Optional" autocomplete="off">
           </div>
         </div>
 
@@ -1504,7 +1506,7 @@ function _applyFiltersAndSort() {
       if (activeDocFilter === 'photos' ? !hasPhotos : !types.has(activeDocFilter)) return false;
     }
     if (!q) return true;
-    return [j.wo_number, j.job_name, j.address, j.description, j.cae_number,
+    return [j.wo_number, j.job_name, j.address, j.description, j.je_number, j.cae_number,
             j.downer_wo_number, j.first_responder, j.notes, j.created_by_name]
       .some(v => (v || '').toLowerCase().includes(q));
   });
@@ -1536,6 +1538,7 @@ function _renderJobCard(j) {
       <div class="job-main">
         <div class="job-wo">
           <span>WO ${esc(j.wo_number || '—')}</span>
+          ${j.je_number  ? `<span class="sep">·</span><span class="je">${esc(fmtJE(j.je_number))}</span>` : ''}
           ${j.cae_number ? `<span class="sep">·</span><span class="cae">CAE ${esc(j.cae_number)}</span>` : ''}
           <span class="type-badge type-${['Fault','Defect','Project','Other'].includes(j.job_type) ? j.job_type.toLowerCase() : 'other'}">${esc(j.job_type || 'Unknown')}</span>
           ${statusTag}
@@ -1753,11 +1756,25 @@ function toast(msg, kind = '') {
 
 /* ═══════════════ CREATE / EDIT JOB ═══════════════ */
 let _selectedJobType = null;
+// JE # as loaded from the DB when editing — lets us tell a legacy value apart from a typed one
+let _loadedJE = '';
+
+/* JE # is 8 digits. Crews write it both ways ("26018494" and "JE26018494"), so accept
+   either and store the bare digits. Returns null if it isn't a valid JE #. */
+function normaliseJE(raw) {
+  const m = String(raw || '').trim().match(/^(?:JE)?[\s-]*(\d{8})$/i);
+  return m ? m[1] : null;
+}
+
+/* Strips any stored "JE" prefix, so legacy rows don't render as "JE JE26018494". */
+function bareJE(v) { return String(v || '').trim().replace(/^JE[\s-]*/i, ''); }
+function fmtJE(v)  { return `JE ${bareJE(v)}`; }
 
 function _resetJobFields() {
   ['jWO','jDate','jCAE','jJE','jDownerWO','jELE','jAddr','jName','jDesc','jResp1','jResp2','jDownerPM','jPowerCoPM','jNotes']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('jStatus').value = 'active';
+  _loadedJE = '';
 }
 
 function openCreateJob() {
@@ -1799,8 +1816,11 @@ function _applyFieldsForType(type) {
   document.getElementById('jDateLabelText').textContent = (isFault || isOther) ? 'Date' : 'Scheduled Finish Date';
   document.getElementById('jDateReq').hidden = !isFault;
 
-  // CAE# + JE# row (Fault only)
+  // JE# + CAE# row (Fault only). JE# is mandatory on new Fault jobs only — existing jobs
+  // predate the rule and many have no JE #, so editing one must not be blocked.
   show('jRowCAEJE', isFault);
+  document.getElementById('jJEReq').hidden  = !(isFault && !editingJobId);
+  document.getElementById('jJEHint').hidden = !isFault;
 
   // Downer WO# (Defect, Project)
   show('jFieldDownerWO', isDefect || isProject);
@@ -1848,6 +1868,7 @@ async function editJob() {
   document.getElementById('jDate').value      = job.scheduled_date   || '';
   document.getElementById('jCAE').value       = job.cae_number       || '';
   document.getElementById('jJE').value        = job.je_number        || '';
+  _loadedJE = job.je_number || '';
   document.getElementById('jDownerWO').value  = job.downer_wo_number || '';
   document.getElementById('jELE').value       = job.ele_number       || '';
   document.getElementById('jAddr').value      = job.address          || '';
@@ -1868,7 +1889,9 @@ async function saveJob() {
   const wo       = document.getElementById('jWO').value.trim();
   const date     = document.getElementById('jDate').value || null;
   const cae      = document.getElementById('jCAE').value.trim()       || null;
-  const je       = document.getElementById('jJE').value.trim()        || null;
+  const jeRaw    = document.getElementById('jJE').value.trim();
+  // Store the bare 8 digits. A legacy value left untouched falls through unchanged.
+  const je       = jeRaw ? (normaliseJE(jeRaw) || jeRaw) : null;
   const downerWO = document.getElementById('jDownerWO').value.trim()  || null;
   const ele      = document.getElementById('jELE').value.trim()       || null;
   const addr     = document.getElementById('jAddr').value.trim()      || null;
@@ -1891,6 +1914,12 @@ async function saveJob() {
     if (!addr)  { toast('Address is required', 'warn'); return; }
     if (!desc)  { toast('Description is required', 'warn'); return; }
     if (!resp1) { toast('1st Responder is required', 'warn'); return; }
+    // New Fault jobs must carry a JE #. Existing ones are left alone unless the
+    // field is actually edited, so a job saved before this rule still saves fine.
+    if (!editingJobId && !jeRaw) { toast('JE # is required', 'warn'); return; }
+    if (jeRaw && !normaliseJE(jeRaw) && (!editingJobId || jeRaw !== _loadedJE)) {
+      toast('JE # must be 8 digits — e.g. 26018494 or JE26018494', 'warn'); return;
+    }
   }
   if (type === 'Defect') {
     if (!desc) { toast('Description is required', 'warn'); return; }
@@ -1987,7 +2016,7 @@ async function _renderJobFolder(job, docs, sitesData, activity, opts = {}) {
   document.getElementById('crumbJob').textContent = job.job_name || job.wo_number;
   // Secondary IDs shown next to WO# depend on job type
   const _secIds = [];
-  if (job.job_type === 'Fault')  { if (job.cae_number)     _secIds.push(`CAE ${job.cae_number}`); if (job.je_number) _secIds.push(`JE ${job.je_number}`); }
+  if (job.job_type === 'Fault')  { if (job.je_number) _secIds.push(fmtJE(job.je_number)); if (job.cae_number) _secIds.push(`CAE ${job.cae_number}`); }
   if (job.job_type === 'Defect' || job.job_type === 'Project') { if (job.downer_wo_number) _secIds.push(`Downer ${job.downer_wo_number}`); }
   if (job.job_type === 'Project') { if (job.ele_number) _secIds.push(`ELE ${job.ele_number}`); }
   document.getElementById('folderWO').textContent = `WO ${job.wo_number}${_secIds.length ? ' · ' + _secIds.join(' · ') : ''}`;
@@ -2080,8 +2109,8 @@ function _renderDetailsTab(job) {
   const rows = [];
   rows.push(cell('Work Order #', esc(job.wo_number)));
   if (type === 'Fault') {
+    if (job.je_number)     rows.push(cell('JE #',       esc(bareJE(job.je_number))));
     if (job.cae_number)    rows.push(cell('CAE #',      esc(job.cae_number)));
-    if (job.je_number)     rows.push(cell('JE #',       esc(job.je_number)));
     rows.push(cell('Address', esc(job.address || '—')));
     rows.push(cell('Description', esc(job.description || '—'), true));
     rows.push(cell('1st Responder', esc(job.first_responder || '—')));
