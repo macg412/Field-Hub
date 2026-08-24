@@ -475,6 +475,18 @@
   .pg-drop-over { outline: 3px dashed oklch(56% 0.20 25); outline-offset: -6px; background: oklch(97% 0.03 25) !important; border-radius: var(--r); }
   .pg-upload-progress { background: var(--accent-soft); border: 1px solid oklch(88% 0.04 258); border-radius: 9px; padding: 12px 16px; font-size: 0.84rem; color: var(--accent-ink); margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
   .pg-spinner { width: 16px; height: 16px; border: 2px solid oklch(85% 0.05 258); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+
+  /* ── Loading states: skeleton placeholders + inline spinners ──
+     Big job folders (70+ sites) take a moment to fill in, so the shell paints
+     immediately and each section shows its own progress rather than a blank screen. */
+  .inline-spinner { width: 13px; height: 13px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; flex-shrink: 0; }
+  .load-note { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--ink-4); font-size: 0.82rem; padding: 14px 0; }
+  .sk-line { background: var(--line); border-radius: 6px; height: 11px; position: relative; overflow: hidden; }
+  .sk-line::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, oklch(97% 0.005 258), transparent); animation: sk-sweep 1.3s ease-in-out infinite; }
+  @keyframes sk-sweep { 100% { transform: translateX(100%); } }
+  .sk-card { border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: var(--surface); display: flex; flex-direction: column; gap: 11px; min-height: 132px; }
+  .sk-card .sk-head { display: flex; align-items: center; gap: 10px; }
+  .sk-card .sk-badge { width: 30px; height: 30px; border-radius: 8px; background: var(--line); flex-shrink: 0; }
   .pg-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 500; display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
   .pg-lightbox img { max-width: 95vw; max-height: 95vh; object-fit: contain; border-radius: 6px; }
 
@@ -1974,6 +1986,24 @@ async function saveJob() {
 }
 
 /* ═══════════════ JOB FOLDER ═══════════════ */
+/* Guards against a slow folder finishing after the user has already backed out
+   or tapped a different job — a stale response must never overwrite the screen. */
+let _folderLoadToken = 0;
+
+/* Documents can be enormous: photos are stored as base64 inside payload, so a
+   single job card runs to megabytes and one folder's worth has reached 44 MB.
+   The folder view only ever shows a name, a date and a draft/submitted badge,
+   so it selects the scalar columns plus the four payload fields it actually
+   displays. openDoc() still fetches the full row when a doc is opened. */
+const DOC_CARD_COLS = [
+  'id', 'job_id', 'site_id', 'doc_type', 'title', 'submitted', 'submitted_at',
+  'created_at', 'updated_at', 'created_by_name', 'updated_by_name', 'pdf_url',
+  'p_tplName:payload->>tplName',   // asbuilt
+  'p_jobName:payload->>jobName',   // scoping
+  'p_jobDate:payload->>jobDate',   // jobcard
+  'p_date:payload->>date'          // storeman
+].join(',');
+
 async function openJob(jobId, opts = {}) {
   activeJobId = jobId;
   // noHistory calls are in-place refreshes after an action (add/delete site, delete doc, etc.)
@@ -1991,30 +2021,42 @@ async function openJob(jobId, opts = {}) {
     return;
   }
 
-  const { data: job } = await sb.from('jobs').select('*').eq('id', jobId).single();
-  if (!job) return;
+  // Paint the folder shell straight away so a big job never looks frozen. The
+  // library cache usually already holds the job row, which fills the header in
+  // with no network wait at all; otherwise the header shows its own skeleton.
+  const token = ++_folderLoadToken;
+  if (!opts.noHistory) {
+    const known = _jobCache?.jobs?.find(j => j.id === jobId) || null;
+    _showFolderSkeleton(known);
+    history.pushState({ screen: 'folder', jobId }, '');
+  }
+
+  const { data: job, error: jobErr } = await sb.from('jobs').select('*').eq('id', jobId).single();
+  if (token !== _folderLoadToken) return;   // user navigated away mid-load
+  if (jobErr || !job) {
+    if (!opts.noHistory) _showFolderLoadError(jobId);
+    return;
+  }
+  _renderFolderHeader(job);
 
   const [{ data: docs = [] }, { data: sitesData = [] }, { data: activity = [] }] = await Promise.all([
-    sb.from('documents').select('*').eq('job_id', jobId),
+    sb.from('documents').select(DOC_CARD_COLS).eq('job_id', jobId),
     sb.from('sites').select('*').eq('job_id', jobId).order('sort_order').order('created_at'),
     sb.from('activity_log').select('*').eq('job_id', jobId).order('at', { ascending: false }).limit(50)
   ]);
+  if (token !== _folderLoadToken) return;
 
   // Cache snapshot for offline use
   OfflineCache.trackJob(jobId);
   OfflineCache.saveJob(jobId, { job, docs, sites: sitesData, activity }).catch(() => {});
 
-  await _renderJobFolder(job, docs, sitesData, activity, opts);
+  await _renderJobFolder(job, docs, sitesData, activity, { ...opts, noHistory: true });
   restoreScroll();
 }
 
-async function _renderJobFolder(job, docs, sitesData, activity, opts = {}) {
-  const jobId = job.id;
-  activeJobId = jobId;
+function _renderFolderHeader(job) {
   _activeJob = job;
-
   document.getElementById('crumbJob').textContent = job.job_name || job.wo_number;
-  // Secondary IDs shown next to WO# depend on job type
   const _secIds = [];
   if (job.job_type === 'Fault')  { if (job.je_number) _secIds.push(fmtJE(job.je_number)); if (job.cae_number) _secIds.push(`CAE ${job.cae_number}`); }
   if (job.job_type === 'Defect' || job.job_type === 'Project') { if (job.downer_wo_number) _secIds.push(`Downer ${job.downer_wo_number}`); }
@@ -2028,6 +2070,63 @@ async function _renderJobFolder(job, docs, sitesData, activity, opts = {}) {
   document.getElementById('folderCreated').textContent = fmtDateTime(job.created_at);
   document.getElementById('folderUpdated').textContent = relTime(job.updated_at);
   document.getElementById('folderCreatedBy').textContent = job.created_by_name || '—';
+}
+
+const _SK_CARD = `
+  <div class="sk-card">
+    <div class="sk-head"><div class="sk-badge"></div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+        <div class="sk-line" style="width:52%"></div><div class="sk-line" style="width:74%;height:9px"></div>
+      </div>
+    </div>
+    <div class="sk-line" style="width:100%"></div>
+    <div class="sk-line" style="width:88%"></div>
+    <div class="sk-line" style="width:64%"></div>
+  </div>`;
+
+function _showFolderSkeleton(known) {
+  if (known) {
+    _renderFolderHeader(known);
+  } else {
+    document.getElementById('crumbJob').textContent = 'Loading…';
+    document.getElementById('folderWO').textContent = 'WO …';
+    document.getElementById('folderName').textContent = 'Loading job…';
+    document.getElementById('folderAddrText').textContent = '—';
+    ['folderStatus','folderType','folderCreated','folderUpdated','folderCreatedBy']
+      .forEach(id => { document.getElementById(id).innerHTML = '<span class="sk-line" style="display:block;width:70%"></span>'; });
+  }
+  document.getElementById('folderDocCount').innerHTML = '<span class="inline-spinner"></span>';
+  document.getElementById('docTotalCount').textContent = '';
+  document.getElementById('docTypeGrid').innerHTML = _SK_CARD.repeat(3);
+  const wrap = document.getElementById('siteSearchWrap');
+  if (wrap) wrap.style.display = 'none';
+  document.getElementById('sitesList').innerHTML =
+    '<div class="load-note"><span class="inline-spinner"></span> Loading sites…</div>';
+  document.getElementById('activityList').innerHTML =
+    '<div class="load-note"><span class="inline-spinner"></span> Loading activity…</div>';
+  document.getElementById('deleteFolderBtn').style.display = 'none';
+  showScreen('screenFolder');
+}
+
+function _showFolderLoadError(jobId) {
+  document.getElementById('crumbJob').textContent = 'Couldn\'t load';
+  document.getElementById('folderName').textContent = 'Couldn\'t load this job';
+  document.getElementById('docTypeGrid').innerHTML = '';
+  document.getElementById('sitesList').innerHTML = `
+    <div class="load-note" style="flex-direction:column;gap:12px;">
+      <span>The job folder didn't load. Check your connection and try again.</span>
+      <button class="btn btn-secondary btn-sm" onclick="openJob('${jobId}')">Retry</button>
+    </div>`;
+  document.getElementById('activityList').innerHTML = '';
+  document.getElementById('folderDocCount').textContent = '—';
+}
+
+async function _renderJobFolder(job, docs, sitesData, activity, opts = {}) {
+  const jobId = job.id;
+  activeJobId = jobId;
+
+  // Secondary IDs, status, dates etc. — shared with the skeleton's early paint
+  _renderFolderHeader(job);
 
   jobSites = sitesData;
   docs.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
@@ -2340,13 +2439,19 @@ async function deleteDocFromFolder(docId) {
 }
 
 /* ═══════════════ SHARED DOC CARD RENDERER ═══════════════ */
+/* The folder list no longer downloads payload (see DOC_CARD_COLS), so the display
+   name and date come from the projected p_* fields. The payload?. fallbacks keep
+   offline snapshots cached by an earlier version rendering correctly. */
+const _docName = (d, def) => d.p_tplName || d.p_jobName || d.payload?.tplName || d.payload?.jobName || d.title || def.label;
+const _docDate = d => d.p_jobDate || d.p_date || d.payload?.jobDate || d.payload?.date || null;
+
 function renderDocTypeCard(key, def, myDocs, siteId, siteName='', singleton=false) {
   const itemsHtml = myDocs.length ? `
     <div class="doc-list">
       ${myDocs.map(d => `
-        <div class="doc-item" style="cursor:pointer;" onclick="openDoc('${d.id}')" data-search="${esc((d.payload?.tplName||d.payload?.jobName||d.title||def.label)+' '+(d.updated_by_name||d.created_by_name||'')).toLowerCase()}" data-type="${key}" data-status="${d.submitted ? 'submitted' : 'draft'}" data-date="${d.updated_at||d.created_at||''}">
-          <div class="doc-name">${esc(d.payload?.tplName || d.payload?.jobName || d.title || def.label)}</div>
-          ${(_activeJob?.wo_number || siteName || d.payload?.jobDate) ? `<div style="font-size:11px;color:var(--text3);margin:-2px 0 2px;display:flex;gap:6px;flex-wrap:wrap;">${_activeJob?.wo_number ? `<span>WO ${esc(_activeJob.wo_number)}</span>` : ''}${d.payload?.jobDate||d.payload?.date ? `<span>${esc(fmtDate(d.payload.jobDate||d.payload.date))}</span>` : ''}${siteName ? `<span>${esc(siteName)}</span>` : ''}</div>` : ''}
+        <div class="doc-item" style="cursor:pointer;" onclick="openDoc('${d.id}')" data-search="${esc(_docName(d, def)+' '+(d.updated_by_name||d.created_by_name||'')).toLowerCase()}" data-type="${key}" data-status="${d.submitted ? 'submitted' : 'draft'}" data-date="${d.updated_at||d.created_at||''}">
+          <div class="doc-name">${esc(_docName(d, def))}</div>
+          ${(_activeJob?.wo_number || siteName || _docDate(d)) ? `<div style="font-size:11px;color:var(--ink-4);margin:-2px 0 2px;display:flex;gap:6px;flex-wrap:wrap;">${_activeJob?.wo_number ? `<span>WO ${esc(_activeJob.wo_number)}</span>` : ''}${_docDate(d) ? `<span>${esc(fmtDate(_docDate(d)))}</span>` : ''}${siteName ? `<span>${esc(siteName)}</span>` : ''}</div>` : ''}
           <div class="doc-row">
             ${d.submitted ? `<span class="submitted-badge">SUBMITTED · ${esc(d.updated_by_name || d.created_by_name || '?')}</span>` : `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--warn-soft);color:var(--warn);flex-shrink:0;letter-spacing:.03em;">DRAFT</span>`}
             <div class="doc-row-meta">
@@ -2462,7 +2567,7 @@ function renderSitePhotosCard(site) {
            ondragover="event.preventDefault();event.dataTransfer.dropEffect='copy';this.classList.add('drop-over')"
            ondragleave="this.classList.remove('drop-over')"
            ondrop="event.preventDefault();this.classList.remove('drop-over');dropPhotosOnCard('${site.id}',event.dataTransfer.files)">
-        Loading…
+        <span class="inline-spinner"></span> Counting photos…
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;margin-top:auto;">
         <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;" onclick="openPhotoGallery('${site.id}')">
@@ -2476,16 +2581,37 @@ function renderSitePhotosCard(site) {
     </div>`;
 }
 
+/* Counts every site's photos in one request instead of one request per site.
+   Jobs here reach 78 sites, and 78 parallel count queries queue up six-at-a-time
+   in the browser, so the counts used to trickle in long after the folder painted.
+   Keyed on site_id (not job_id) to stay exactly equivalent to the old per-site
+   query — a handful of rows have a job_id that disagrees with their site's. */
 async function loadPhotoCountsForSites(sites) {
   if (!sites.length) return;
-  await Promise.all(sites.map(async site => {
-    const { count } = await sb.from('site_photos')
-      .select('id', { count: 'exact', head: true }).eq('site_id', site.id);
+  const ids = sites.map(s => s.id);
+  const counts = {};
+
+  // Chunked so a job with hundreds of sites can't overflow the request URL.
+  const CHUNK = 150;
+  const chunks = [];
+  for (let i = 0; i < ids.length; i += CHUNK) chunks.push(ids.slice(i, i + CHUNK));
+
+  const results = await Promise.all(chunks.map(chunk =>
+    sb.from('site_photos').select('site_id').in('site_id', chunk)
+  ));
+  for (const { data = [], error } of results) {
+    if (error) { console.error('loadPhotoCountsForSites:', error); return; }
+    for (const row of data) counts[row.site_id] = (counts[row.site_id] || 0) + 1;
+  }
+
+  for (const site of sites) {
     const el = document.getElementById(`photos-count-${site.id}`);
-    if (el) el.innerHTML = count
+    if (!el) continue;
+    const count = counts[site.id] || 0;
+    el.innerHTML = count
       ? `<span class="photo-count-pill">${count} photo${count===1?'':'s'}</span>`
       : 'No photos yet<br><small style="font-size:0.72rem;opacity:0.65">drop photos to upload</small>';
-  }));
+  }
 }
 
 /* ── Site toggle (expand/collapse) ── */
@@ -2809,6 +2935,9 @@ function filterSites(q) {
 
 /* ═══════════════ NAV ═══════════════ */
 function showScreen(id) {
+  // Leaving the folder cancels any in-flight folder load, so a slow response
+  // for a job the user has already backed out of can't snap them back into it.
+  if (id !== 'screenFolder') _folderLoadToken++;
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   const inApp = id === 'screenDoc';
