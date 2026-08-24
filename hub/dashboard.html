@@ -487,8 +487,33 @@
   .sk-card { border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: var(--surface); display: flex; flex-direction: column; gap: 11px; min-height: 132px; }
   .sk-card .sk-head { display: flex; align-items: center; gap: 10px; }
   .sk-card .sk-badge { width: 30px; height: 30px; border-radius: 8px; background: var(--line); flex-shrink: 0; }
-  .pg-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 500; display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
-  .pg-lightbox img { max-width: 95vw; max-height: 95vh; object-fit: contain; border-radius: 6px; }
+  /* ── Lightbox: full-screen preview, editable caption, prev/next ── */
+  .pg-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 500; display: flex; flex-direction: column; }
+  .pg-lb-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; color: rgba(255,255,255,0.92); flex-shrink: 0; }
+  .pg-lb-count { font-family: var(--mono); font-size: 0.82rem; letter-spacing: 0.02em; color: rgba(255,255,255,0.72); }
+  .pg-lb-btn { background: rgba(255,255,255,0.12); border: none; border-radius: 8px; color: #fff; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+  .pg-lb-btn:hover { background: rgba(255,255,255,0.24); }
+  .pg-lb-btn svg { width: 17px; height: 17px; }
+  .pg-lb-stage { flex: 1; min-height: 0; position: relative; display: flex; align-items: center; justify-content: center; padding: 0 8px; touch-action: pan-y; }
+  .pg-lb-stage img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px; user-select: none; -webkit-user-drag: none; }
+  .pg-lb-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.22); border-radius: 50%; color: #fff; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2; }
+  .pg-lb-nav:hover { background: rgba(0,0,0,0.78); }
+  .pg-lb-nav[hidden] { display: none; }
+  .pg-lb-nav svg { width: 20px; height: 20px; }
+  .pg-lb-nav.prev { left: 10px; }
+  .pg-lb-nav.next { right: 10px; }
+  .pg-lb-nav.next svg { transform: scaleX(-1); }
+  .pg-lb-foot { flex-shrink: 0; padding: 12px 14px calc(12px + env(safe-area-inset-bottom)); background: rgba(0,0,0,0.55); display: flex; align-items: center; gap: 10px; }
+  .pg-lb-foot label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.55); flex-shrink: 0; }
+  .pg-lb-caption { flex: 1; min-width: 0; background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.22); border-radius: 8px; padding: 9px 12px; color: #fff; font-family: var(--font); font-size: 0.92rem; }
+  .pg-lb-caption::placeholder { color: rgba(255,255,255,0.42); }
+  .pg-lb-caption:focus { outline: none; border-color: #fff; background: rgba(255,255,255,0.16); }
+  .pg-lb-saved { font-size: 0.74rem; color: rgba(255,255,255,0.6); min-width: 52px; text-align: right; flex-shrink: 0; }
+  @media (max-width: 560px) {
+    .pg-lb-nav { width: 38px; height: 38px; }
+    .pg-lb-foot { flex-wrap: wrap; }
+    .pg-lb-foot label { display: none; }
+  }
 
   /* ── PHOTO COUNT PILL on site doc cards ── */
   .photo-count-pill { display: inline-flex; align-items: center; gap: 5px; background: oklch(96% 0.05 25); color: oklch(46% 0.18 25); border: 1px solid oklch(87% 0.08 25); border-radius: 999px; padding: 4px 12px; font-size: 0.78rem; font-weight: 600; font-family: var(--mono); }
@@ -2687,6 +2712,7 @@ async function openPhotoGallery(siteId) {
 }
 
 function closePhotoGallery() {
+  pgLbClose();   // flushes any caption still being typed
   document.getElementById('photoGalleryModal').classList.remove('show');
   loadPhotoCountsForSites(jobSites);
 }
@@ -2695,7 +2721,7 @@ function _pgCardHtml(p) {
   return `
     <div class="pg-card">
       <div class="pg-img-wrap">
-        <img src="${esc(p.public_url)}" alt="${esc(p.caption||'Photo')}" loading="lazy" onclick="pgLightbox('${esc(p.public_url)}')">
+        <img src="${esc(p.public_url)}" alt="${esc(p.caption||'Photo')}" loading="lazy" onclick="pgLightbox('${p.id}')">
         <button class="pg-dl" onclick="downloadPhoto('${esc(p.public_url)}','${esc(p.caption||'photo')}')" title="Download photo">${ICO('icon-download')}</button>
         <button class="pg-del" onclick="deletePhoto('${p.id}')" title="Delete photo">${ICO('icon-trash')}</button>
       </div>
@@ -2731,6 +2757,10 @@ function _pgAppendBatch() {
 }
 
 async function renderPhotoGallery() {
+  // Indexes into _pgAllPhotos are about to be invalidated — close the preview
+  // first (which flushes any caption still being typed) rather than leave it
+  // pointing at a stale photo.
+  pgLbClose();
   const body = document.getElementById('pgBody');
   body.innerHTML = '<div class="pg-empty"><div class="pg-spinner"></div><span style="margin-left:8px">Loading…</span></div>';
   _pgAllPhotos = [];
@@ -2757,12 +2787,148 @@ async function renderPhotoGallery() {
   _pgAppendBatch();
 }
 
-function pgLightbox(url) {
+/* ═══════════════ LIGHTBOX ═══════════════
+   Full-screen preview over the gallery: shows and edits the caption in place,
+   and steps through every photo in the gallery (all of _pgAllPhotos, not just
+   the batch currently rendered in the grid) via arrows, keyboard or swipe. */
+let _pgLbIndex = -1;      // index into _pgAllPhotos, -1 when closed
+let _pgLbCapTimer = null; // debounce for the caption write
+
+function pgLightbox(photoId) {
+  const idx = _pgAllPhotos.findIndex(p => p.id === photoId);
+  if (idx < 0) return;
+  if (!document.getElementById('pgLightbox')) _pgBuildLightbox();
+  _pgLbShow(idx);
+}
+
+function _pgBuildLightbox() {
   const lb = document.createElement('div');
   lb.className = 'pg-lightbox';
-  lb.innerHTML = `<img src="${esc(url)}" alt="Photo">`;
-  lb.onclick = () => lb.remove();
+  lb.id = 'pgLightbox';
+  lb.innerHTML = `
+    <div class="pg-lb-bar">
+      <span class="pg-lb-count" id="pgLbCount"></span>
+      <button class="pg-lb-btn" id="pgLbClose" title="Close (Esc)" aria-label="Close">${ICO('icon-x')}</button>
+    </div>
+    <div class="pg-lb-stage" id="pgLbStage">
+      <button class="pg-lb-nav prev" id="pgLbPrev" title="Previous (←)" aria-label="Previous photo">${ICO('icon-arrow-left')}</button>
+      <img id="pgLbImg" alt="">
+      <button class="pg-lb-nav next" id="pgLbNext" title="Next (→)" aria-label="Next photo">${ICO('icon-arrow-left')}</button>
+    </div>
+    <div class="pg-lb-foot">
+      <label for="pgLbCaption">Caption</label>
+      <input id="pgLbCaption" class="pg-lb-caption" placeholder="Add a caption…" maxlength="120">
+      <span class="pg-lb-saved" id="pgLbSaved"></span>
+    </div>`;
   document.body.appendChild(lb);
+
+  document.getElementById('pgLbClose').onclick = pgLbClose;
+  document.getElementById('pgLbPrev').onclick  = () => pgLbStep(-1);
+  document.getElementById('pgLbNext').onclick  = () => pgLbStep(1);
+  document.getElementById('pgLbCaption').oninput = _pgLbCaptionInput;
+
+  // Click the dark surround to close, but never the image or the controls.
+  lb.addEventListener('click', e => { if (e.target === lb || e.target.id === 'pgLbStage') pgLbClose(); });
+
+  // Swipe left/right on the image area.
+  let sx = 0, sy = 0, tracking = false;
+  const stage = document.getElementById('pgLbStage');
+  stage.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) { tracking = false; return; }
+    tracking = true; sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+  }, { passive: true });
+  stage.addEventListener('touchend', e => {
+    if (!tracking) return;
+    tracking = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) pgLbStep(dx < 0 ? 1 : -1);
+  }, { passive: true });
+
+  document.addEventListener('keydown', _pgLbKeys);
+}
+
+function _pgLbKeys(e) {
+  if (_pgLbIndex < 0) return;
+  // Let the caption field keep its own arrow-key cursor movement.
+  const typing = e.target && e.target.id === 'pgLbCaption';
+  if (e.key === 'Escape')                  { e.preventDefault(); pgLbClose(); }
+  else if (e.key === 'ArrowLeft'  && !typing) { e.preventDefault(); pgLbStep(-1); }
+  else if (e.key === 'ArrowRight' && !typing) { e.preventDefault(); pgLbStep(1); }
+}
+
+function pgLbStep(delta) {
+  if (_pgLbIndex < 0 || !_pgAllPhotos.length) return;
+  const next = _pgLbIndex + delta;
+  if (next < 0 || next >= _pgAllPhotos.length) return;
+  _pgLbShow(next);
+}
+
+function _pgLbShow(idx) {
+  _pgLbFlushCaption();                     // don't lose an edit in progress
+  _pgLbIndex = idx;
+  const p  = _pgAllPhotos[idx];
+  const lb = document.getElementById('pgLightbox');
+  if (!lb || !p) return;
+  lb.style.display = 'flex';
+
+  const img = document.getElementById('pgLbImg');
+  img.src = p.public_url;
+  img.alt = p.caption || 'Photo';
+  document.getElementById('pgLbCount').textContent = `${idx + 1} / ${_pgAllPhotos.length}`;
+  document.getElementById('pgLbCaption').value = p.caption || '';
+  document.getElementById('pgLbSaved').textContent = '';
+  document.getElementById('pgLbPrev').hidden = idx === 0;
+  document.getElementById('pgLbNext').hidden = idx === _pgAllPhotos.length - 1;
+
+  // Warm the neighbours so stepping through feels instant.
+  [idx - 1, idx + 1].forEach(i => {
+    const n = _pgAllPhotos[i];
+    if (n) { const pre = new Image(); pre.src = n.public_url; }
+  });
+}
+
+function pgLbClose() {
+  _pgLbFlushCaption();
+  _pgLbIndex = -1;
+  const lb = document.getElementById('pgLightbox');
+  if (lb) lb.style.display = 'none';
+}
+
+function _pgLbCaptionInput() {
+  const el = document.getElementById('pgLbSaved');
+  if (el) el.textContent = 'Saving…';
+  clearTimeout(_pgLbCapTimer);
+  _pgLbCapTimer = setTimeout(_pgLbFlushCaption, 600);
+}
+
+/* Writes only `caption` — never the whole row — so a note typed on the grid card
+   can't be clobbered by an edit made here, and it works even when the photo's
+   grid card hasn't been rendered yet (galleries page in at 60 at a time). */
+function _pgLbFlushCaption() {
+  clearTimeout(_pgLbCapTimer);
+  _pgLbCapTimer = null;
+  if (_pgLbIndex < 0) return;
+  const p     = _pgAllPhotos[_pgLbIndex];
+  const input = document.getElementById('pgLbCaption');
+  if (!p || !input) return;
+  const val = input.value;
+  if (val === (p.caption || '')) return;
+
+  p.caption = val;
+  // Keep the grid card in sync if it is on screen.
+  const card = document.querySelector(`.pg-card [onclick*="${p.id}"]`)?.closest('.pg-card');
+  const gridInput = card?.querySelector('.pg-caption');
+  if (gridInput && gridInput.value !== val) gridInput.value = val;
+
+  sb.from('site_photos').update({ caption: val }).eq('id', p.id).then(({ error }) => {
+    const el = document.getElementById('pgLbSaved');
+    if (error) { console.error('caption save:', error); if (el) el.textContent = 'Not saved'; toast('Caption didn\'t save', 'danger'); return; }
+    if (el && _pgAllPhotos[_pgLbIndex]?.id === p.id) {
+      el.textContent = 'Saved';
+      setTimeout(() => { if (el.textContent === 'Saved') el.textContent = ''; }, 1600);
+    }
+  });
 }
 
 async function downloadPhoto(url, caption) {
@@ -2920,6 +3086,13 @@ function pgMetaDebounce(photoId, captionEl, notesEl) {
     const card = (captionEl || notesEl).closest('.pg-card');
     const cap  = card.querySelector('.pg-caption').value;
     const nts  = card.querySelector('.pg-notes').value;
+    // Mirror onto the in-memory copy so the lightbox opens with the current text.
+    const p = _pgAllPhotos.find(x => x.id === photoId);
+    if (p) { p.caption = cap; p.notes = nts; }
+    if (_pgLbIndex >= 0 && _pgAllPhotos[_pgLbIndex]?.id === photoId) {
+      const lbInput = document.getElementById('pgLbCaption');
+      if (lbInput && lbInput.value !== cap) lbInput.value = cap;
+    }
     sb.from('site_photos').update({ caption: cap, notes: nts }).eq('id', photoId).then(() => {});
   }, 600);
 }
