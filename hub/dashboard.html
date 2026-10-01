@@ -2023,10 +2023,14 @@ let _folderLoadToken = 0;
 const DOC_CARD_COLS = [
   'id', 'job_id', 'site_id', 'doc_type', 'title', 'submitted', 'submitted_at',
   'created_at', 'updated_at', 'created_by_name', 'updated_by_name', 'pdf_url',
-  'p_tplName:payload->>tplName',   // asbuilt
-  'p_jobName:payload->>jobName',   // scoping
-  'p_jobDate:payload->>jobDate',   // jobcard
-  'p_date:payload->>date'          // storeman
+  // list_name / list_date mirror payload tplName|jobName / jobDate|date, kept in
+  // sync by the documents_sync_list_fields trigger. They replace the old
+  // 'p_tplName:payload->>tplName' style projections: a jsonb operator forces
+  // Postgres to detoast the WHOLE payload, so asking for a 30-byte string
+  // dragged every photo in the folder off disk. Measured on a 59-doc folder,
+  // that was 28,663 buffers / 4,389 ms; with these columns it is 38 / 1.7 ms.
+  // Never reintroduce a payload->> projection into this list query.
+  'list_name', 'list_date'
 ].join(',');
 
 async function openJob(jobId, opts = {}) {
@@ -2465,10 +2469,11 @@ async function deleteDocFromFolder(docId) {
 
 /* ═══════════════ SHARED DOC CARD RENDERER ═══════════════ */
 /* The folder list no longer downloads payload (see DOC_CARD_COLS), so the display
-   name and date come from the projected p_* fields. The payload?. fallbacks keep
-   offline snapshots cached by an earlier version rendering correctly. */
-const _docName = (d, def) => d.p_tplName || d.p_jobName || d.payload?.tplName || d.payload?.jobName || d.title || def.label;
-const _docDate = d => d.p_jobDate || d.p_date || d.payload?.jobDate || d.payload?.date || null;
+   name and date come from the list_name / list_date columns. The p_* and payload?.
+   fallbacks keep offline snapshots cached by an earlier version rendering
+   correctly, so they must stay until those caches have aged out. */
+const _docName = (d, def) => d.list_name || d.p_tplName || d.p_jobName || d.payload?.tplName || d.payload?.jobName || d.title || def.label;
+const _docDate = d => d.list_date || d.p_jobDate || d.p_date || d.payload?.jobDate || d.payload?.date || null;
 
 function renderDocTypeCard(key, def, myDocs, siteId, siteName='', singleton=false) {
   const itemsHtml = myDocs.length ? `
