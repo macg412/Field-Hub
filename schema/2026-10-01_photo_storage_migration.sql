@@ -91,3 +91,29 @@ grant execute on function public.next_photo_migration_batch(int) to service_role
 --
 -- Finally delete the Edge Function: it is guarded by a token baked into its source
 -- but is still invokable with the public anon key, and it has no further purpose.
+
+-- ───────────────────────────────────────────────────────────────────────────
+-- 2026-10-02 — applied as drop_photo_migration_helpers
+--
+-- Migration complete: 436 documents, 878 photos, 0 failures.
+--   live payload   519 MB -> 6,357 kB
+--   documents      570 MB -> 7,064 kB (after vacuum full, 0 dead tuples)
+--   doc-photos     891 objects, 386 MB
+--   max(updated_at) unchanged at 2026-10-01 02:44:22.982005+00
+--
+-- The one-shot helpers are dropped. migrate_doc_payload in particular could
+-- rewrite any document's payload while suppressing updated_at, which is not a
+-- capability worth leaving in place. Both had zero dependents and backed no
+-- triggers. Their definitions remain above if ever needed again.
+drop function if exists public.migrate_doc_payload(uuid, jsonb);
+drop function if exists public.next_photo_migration_batch(int);
+
+-- Deliberately KEPT:
+--  * update_updated_at and its app.skip_updated_at opt-out — still backs
+--    documents_updated_at and jobs_updated_at (verified: 2 triggers still wired,
+--    and a normal write still stamps updated_at). Inert unless the GUC is set.
+--  * doc_photo_migration — the audit trail of which payload path became which URL.
+--
+-- The migrate-doc-photos Edge Function body was replaced with a 410 stub; the slug
+-- itself still needs deleting, as the MCP server exposes no delete operation:
+--   supabase functions delete migrate-doc-photos --project-ref idvodclpwdabfgsqniwl
