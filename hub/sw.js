@@ -49,7 +49,26 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Supabase API: never cache — responses are large data blobs that change constantly.
+  /* Storage objects (photos) ARE cached, unlike the rest of Supabase. Photos used
+     to live as base64 inside documents.payload, so they came along with the
+     IndexedDB OfflineCache for free. Now that they are Storage URLs, a crew with
+     no coverage would get blank photo slots unless we keep the bytes here.
+     Stale-while-revalidate because uploads use upsert on a stable key, so a
+     replaced photo can show the previous image once before the update lands. */
+  if (url.hostname.includes('supabase.co') && url.pathname.includes('/storage/v1/object/')) {
+    e.respondWith(
+      caches.match(req).then(cached => {
+        const network = fetch(req).then(res => {
+          if (res.ok) caches.open(CACHE).then(c => c.put(req, res.clone()));
+          return res;
+        }).catch(() => cached || Response.error());
+        return cached || network;
+      })
+    );
+    return;
+  }
+
+  // Rest of the Supabase API: never cache — large data blobs that change constantly.
   // Offline data is handled by IndexedDB OfflineCache in dashboard.html.
   if (url.hostname.includes('supabase.co')) {
     e.respondWith(fetch(req).catch(() => caches.match(req) || Response.error()));

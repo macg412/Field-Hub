@@ -1470,7 +1470,15 @@ window.addEventListener('message', async e => {
   const { docId, key, dataUrl } = e.data;
   if (!docId || !key || !dataUrl || !e.source) return;
   try {
-    const compressed = await compressDataUrl(dataUrl, 1920, 0.80);
+    /* The apps already downscale to 1600px/q0.75 before sending (see PHOTO_MAX_EDGE
+       in jobcard.html / fieldforms.html). Re-encoding every upload here added a
+       second JPEG generation for no gain, and q0.80 over a q0.75 source inflates
+       the file rather than improving it. Only re-compress what actually arrives
+       oversized -- e.g. an image dragged in from another site. The threshold is in
+       base64 characters; a compliant photo measured ~845,000. */
+    const compressed = dataUrl.length <= 1200000
+      ? dataUrl
+      : await compressDataUrl(dataUrl, 1600, 0.75);
     const res = await fetch(compressed);
     const blob = await res.blob();
     const { error } = await sb.storage.from('doc-photos').upload(`${docId}/${key}`, blob, {
